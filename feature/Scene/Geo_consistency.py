@@ -70,7 +70,7 @@ def compute_geometric_anomaly_map(image_pil):
     print("✅ Geometric anomaly map computed.")
     return loss  # (H, W), float32
 
-def extract_geometric_features(image_512: np.ndarray) -> np.ndarray:
+def extract_geometric_feature(image_512: np.ndarray) -> np.ndarray:
     """
     输入: (512, 512, 3) RGB uint8
     输出: (512, 512, 3) float32 —— 表面法向量 [Nx, Ny, Nz]

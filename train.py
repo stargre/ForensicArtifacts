@@ -16,10 +16,10 @@ import numpy as np
 from pre_data.dataprocess import ForensicDataset
 
 # 导入各个编码器和融合模块
-from Scene.scene_encoder import SceneEncoder
-from Imaging.image_encoder import ImagingEncoder
-from Signal.signal_encoder import SignalEncoder
-from MHSA import GatedFusionModule
+from feature.Scene.scene_encoder import SceneEncoder
+from feature.Imaging.image_encoder import ImagingEncoder
+from feature.Signal.signal_encoder import SignalEncoder
+from feature.MHSA import GatedFusionModule
 
 
 # ======================== 配置解析 ========================

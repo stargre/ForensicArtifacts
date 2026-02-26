@@ -156,7 +156,7 @@ class LayoutAnomalyDetector:
         heatmap = gaussian(heatmap, sigma=5, preserve_range=True)
         return heatmap.astype(np.float32)
     
-    def extract_layout_features(self, image: np.ndarray) -> np.ndarray:
+    def extract_layout_feature(self, image: np.ndarray) -> np.ndarray:
         """
         输入: (512, 512, 3) RGB uint8
         输出: (512, 512, 3) float32 —— [box_mask, confidence_map, height_map]
@@ -185,41 +185,54 @@ class LayoutAnomalyDetector:
         features = np.stack([box_mask, conf_map, height_map], axis=-1)  # (512,512,3)
         return features.astype(np.float32)
 
+# 全局单例，避免重复初始化 OCR
+_GLOBAL_LAYOUT_DETECTOR = None
 
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+def _get_global_detector(input_size=512, lang='en'):
+    global _GLOBAL_LAYOUT_DETECTOR
+    if _GLOBAL_LAYOUT_DETECTOR is None:
+        _GLOBAL_LAYOUT_DETECTOR = LayoutAnomalyDetector(input_size=input_size, lang=lang)
+    return _GLOBAL_LAYOUT_DETECTOR
 
-    # 加载图像
-    img_path = "/mnt/data3/public_datasets/OpenMMSec/3/e685278670eb41f1bb35f9f88510a1c1.jpg"  # 替换为你的路径
-    image = cv2.imread(img_path)
-    original_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # 保留原始图像用于保存和显示
-    image_resized = cv2.resize(original_image, (512, 512))  # 调整大小以适应模型输入要求
+def extract_layout_feature(image_512: np.ndarray) -> np.ndarray:
+    
+    detector = _get_global_detector()
+    return detector.extract_layout_feature(image_512)
 
-    detector = LayoutAnomalyDetector(input_size=512, lang='en')  # 或 'ch' 中文
-    heatmap = detector(image_resized)
+# if __name__ == "__main__":
+#     import matplotlib.pyplot as plt
 
-    # 单独保存原图和热力图
-    plt.imsave("original_image.png", original_image)
-    plt.imsave("layout_anomaly_heatmap.png", heatmap, cmap='jet')
+#     # 加载图像
+#     img_path = "/mnt/data3/public_datasets/OpenMMSec/3/e685278670eb41f1bb35f9f88510a1c1.jpg"  # 替换为你的路径
+#     image = cv2.imread(img_path)
+#     original_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # 保留原始图像用于保存和显示
+#     image_resized = cv2.resize(original_image, (512, 512))  # 调整大小以适应模型输入要求
 
-    # 可视化 - 并排显示原图和热力图
-    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+#     detector = LayoutAnomalyDetector(input_size=512, lang='en')  # 或 'ch' 中文
+#     heatmap = detector(image_resized)
 
-    # 原图
-    axes[0].imshow(original_image)
-    axes[0].set_title("Original Image")
-    axes[0].axis('off')
+#     # 单独保存原图和热力图
+#     plt.imsave("original_image.png", original_image)
+#     plt.imsave("layout_anomaly_heatmap.png", heatmap, cmap='jet')
 
-    # 热力图
-    im = axes[1].imshow(heatmap, cmap='jet')
-    axes[1].set_title("Layout Anomaly Heatmap")
-    axes[1].axis('off')
-    fig.colorbar(im, ax=axes[1], fraction=0.046, pad=0.04)
+#     # 可视化 - 并排显示原图和热力图
+#     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
 
-    plt.tight_layout()
-    plt.savefig("comparison_original_vs_heatmap.png", dpi=150)
-    plt.show()
+#     # 原图
+#     axes[0].imshow(original_image)
+#     axes[0].set_title("Original Image")
+#     axes[0].axis('off')
 
-    print("✅ Original image saved to original_image.png")
-    print("✅ Heatmap saved to layout_anomaly_heatmap.png")
-    print("✅ Comparison image saved to comparison_original_vs_heatmap.png")
+#     # 热力图
+#     im = axes[1].imshow(heatmap, cmap='jet')
+#     axes[1].set_title("Layout Anomaly Heatmap")
+#     axes[1].axis('off')
+#     fig.colorbar(im, ax=axes[1], fraction=0.046, pad=0.04)
+
+#     plt.tight_layout()
+#     plt.savefig("comparison_original_vs_heatmap.png", dpi=150)
+#     plt.show()
+
+#     print("✅ Original image saved to original_image.png")
+#     print("✅ Heatmap saved to layout_anomaly_heatmap.png")
+#     print("✅ Comparison image saved to comparison_original_vs_heatmap.png")

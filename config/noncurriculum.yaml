@@ -34,7 +34,7 @@ data:
 
 # 训练集
 train_dataset:
-  path: "/mnt/public/public_datasets/OpenMMSecV2/jsons_v5/total_train.json"
+  path: "/mnt/public/public_datasets/OpenMMSecV2/jsons_v5/train.json"
   target_domains: null          # 筛选特定域 (null=全部)
   target_mani_types: null       # 筛选特定操作类型 (null=全部)
   # 可选示例:

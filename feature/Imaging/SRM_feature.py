@@ -185,6 +185,35 @@ def extract_srm_feature(image):
     srm_tensor = np.stack(srm_maps, axis=0)  # (30, H, W)
     return srm_tensor.astype(np.float32)
 
+# def extract_srm_feature(image_512: np.ndarray) -> np.ndarray:
+#     """
+#     提取 SRM 特征（与 Semantic/Layout 接口对齐）
+    
+#     Args:
+#         image_512: (512, 512, 3) uint8 RGB numpy array
+    
+#     Returns:
+#         (512, 512, 30) float32 SRM feature map
+#     """
+#     assert image_512.shape == (512, 512, 3) and image_512.dtype == np.uint8, \
+#         "Input must be (512, 512, 3) uint8 RGB"
+
+#     # 转灰度
+#     gray = cv2.cvtColor(image_512, cv2.COLOR_RGB2GRAY).astype(np.float32)
+
+#     # 获取 30 个滤波器
+#     kernels = get_srm_filters()  # (30, 5, 5)
+
+#     # 应用每个滤波器
+#     srm_maps = []
+#     for k in kernels:
+#         response = cv2.filter2D(gray, -1, k, borderType=cv2.BORDER_REFLECT)
+#         response = np.clip(response, -3.0, 3.0)
+#         srm_maps.append(response)
+
+#     # Stack as (H, W, 30) —— 注意顺序！
+#     srm_tensor = np.stack(srm_maps, axis=-1)  # ⬅️ 关键：axis=-1 得到 HWC
+#     return srm_tensor.astype(np.float32)
 # # === 主程序：加载图像并提取 SRM 特征 ===
 # if __name__ == "__main__":
 #     image_path = "/mnt/data3/public_datasets/OpenMMSec/3/e685278670eb41f1bb35f9f88510a1c1.jpg"

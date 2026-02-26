@@ -87,7 +87,7 @@ def compute_lighting_shadow_anomaly_map(image_pil, tau_deg=30.0):
     return M.astype(np.float32), theta_deg, L
 
 
-def extract_lighting_features(image_512: np.ndarray) -> np.ndarray:
+def extract_lighting_feature(image_512: np.ndarray) -> np.ndarray:
     """
     输入: (512, 512, 3) RGB uint8
     输出: (512, 512, 3) float32 —— [L, dx, dy] 

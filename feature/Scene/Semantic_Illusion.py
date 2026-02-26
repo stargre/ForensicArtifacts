@@ -250,7 +250,7 @@ class SemanticConsistencyChecker:
         
         return anomaly_map
     
-    def extract_semantic_features(self, image_512: np.ndarray) -> np.ndarray:
+    def extract_semantic_feature(self, image_512: np.ndarray) -> np.ndarray:
         """
         输入: (512, 512, 3) RGB uint8
         输出: (512, 512, 768) float32 —— DINOv2 patch features
@@ -289,6 +289,28 @@ class SemanticConsistencyChecker:
         return semantic_map
 
 
+# 全局单例，避免重复加载模型
+_GLOBAL_SEMANTIC_CHECKER = None
+
+def _get_global_checker(device="cuda"):
+    global _GLOBAL_SEMANTIC_CHECKER
+    if _GLOBAL_SEMANTIC_CHECKER is None:
+        _GLOBAL_SEMANTIC_CHECKER = SemanticConsistencyChecker(device=device)
+    return _GLOBAL_SEMANTIC_CHECKER
+
+def extract_semantic_feature(image_512: np.ndarray) -> np.ndarray:
+    """
+    提取 DINOv2 语义特征（可直接从模块导入）
+    
+    Args:
+        image_512: (512, 512, 3) uint8 RGB numpy array
+    
+    Returns:
+        (512, 512, 768) float32 numpy array of patch features
+    """
+    checker = _get_global_checker()
+    return checker.extract_semantic_feature(image_512)
+
 # ==============================================================================
 # 主程序
 # ==============================================================================
@@ -309,42 +331,42 @@ class SemanticConsistencyChecker:
 #     print("✅ Heatmap saved to semantic_map.png")
 
 
-if __name__ == "__main__":
-    checker = SemanticConsistencyChecker(device="cuda")
+# if __name__ == "__main__":
+#     checker = SemanticConsistencyChecker(device="cuda")
 
-    image_path = "/mnt/data3/public_datasets/OpenMMSec/3/e685278670eb41f1bb35f9f88510a1c1.jpg"
-    original_image = Image.open(image_path).convert("RGB")
+#     image_path = "/mnt/data3/public_datasets/OpenMMSec/3/e685278670eb41f1bb35f9f88510a1c1.jpg"
+#     original_image = Image.open(image_path).convert("RGB")
     
-    semantic_map = checker.check_semantic_consistency(original_image)
+#     semantic_map = checker.check_semantic_consistency(original_image)
 
-    print(f"Semantic Map shape: {semantic_map.shape}, range: [{semantic_map.min():.3f}, {semantic_map.max():.3f}]")
+#     print(f"Semantic Map shape: {semantic_map.shape}, range: [{semantic_map.min():.3f}, {semantic_map.max():.3f}]")
     
-    # --- 保存单独的热力图（保持原有功能） ---
-    plt.figure(figsize=(6, 6))
-    plt.imshow(semantic_map, cmap='jet')
-    plt.colorbar()
-    plt.title('Semantic Consistency Heatmap (DINOv2 ViT-B/14 - 518x518)')
-    plt.savefig("semantic_map.png", dpi=150, bbox_inches='tight')
-    plt.close()
+#     # --- 保存单独的热力图（保持原有功能） ---
+#     plt.figure(figsize=(6, 6))
+#     plt.imshow(semantic_map, cmap='jet')
+#     plt.colorbar()
+#     plt.title('Semantic Consistency Heatmap (DINOv2 ViT-B/14 - 518x518)')
+#     plt.savefig("semantic_map.png", dpi=150, bbox_inches='tight')
+#     plt.close()
 
-    # --- 新增：原图 + 热力图对比 ---
-    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+#     # --- 新增：原图 + 热力图对比 ---
+#     fig, axes = plt.subplots(1, 2, figsize=(12, 6))
     
-    # 原图（resize 到 512x512 以便对齐）
-    original_resized = original_image.resize((512, 512), Image.BICUBIC)
-    axes[0].imshow(original_resized)
-    axes[0].set_title("Original Image (512×512)")
-    axes[0].axis('off')
+#     # 原图（resize 到 512x512 以便对齐）
+#     original_resized = original_image.resize((512, 512), Image.BICUBIC)
+#     axes[0].imshow(original_resized)
+#     axes[0].set_title("Original Image (512×512)")
+#     axes[0].axis('off')
 
-    # 热力图
-    im = axes[1].imshow(semantic_map, cmap='jet')
-    axes[1].set_title("Semantic Consistency Heatmap")
-    axes[1].axis('off')
-    fig.colorbar(im, ax=axes[1], fraction=0.046, pad=0.04)
+#     # 热力图
+#     im = axes[1].imshow(semantic_map, cmap='jet')
+#     axes[1].set_title("Semantic Consistency Heatmap")
+#     axes[1].axis('off')
+#     fig.colorbar(im, ax=axes[1], fraction=0.046, pad=0.04)
 
-    plt.tight_layout()
-    plt.savefig("semantic_map_comparison.png", dpi=200, bbox_inches='tight')
-    plt.close()
+#     plt.tight_layout()
+#     plt.savefig("semantic_map_comparison.png", dpi=200, bbox_inches='tight')
+#     plt.close()
 
-    print("✅ Heatmap saved to semantic_map.png")
-    print("✅ Comparison (original + heatmap) saved to semantic_map_comparison.png")
+#     print("✅ Heatmap saved to semantic_map.png")
+#     print("✅ Comparison (original + heatmap) saved to semantic_map_comparison.png")

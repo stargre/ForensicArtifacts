@@ -7,7 +7,7 @@
 set -e  # 遇错停止
 
 # ==================== 配置文件路径 ====================
-yaml_config="${yaml_config:-D:/模拟桌面/科研/cv/ForensicArtifacts/config/noncurriculum.yaml}"
+yaml_config="${yaml_config:-/mnt/data3/zhiyu/ForensicArtifacts/config/noncurriculum.yaml}"
 
 # 检查配置文件存在
 if [ ! -f "$yaml_config" ]; then
