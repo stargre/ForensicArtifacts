@@ -1,0 +1,125 @@
+# ==================== 运行控制 ====================
+# DDP 分布式训练
+gpus: "0,1"                    # 使用的GPU编号
+flag: train                     # train / test
+
+# 日志和检查点
+log_dir: "./log/forensic_cross"
+checkpoint_path: null           # 加载预训练权重路径 (null=从头训练)
+save_dir: "./checkpoints/forensic_cross/noncurriculum"
+resume: false                   # 是否从checkpoint恢复训练
+
+# ==================== 模型配置 ====================
+model:
+  # 编码器通道配置
+  scene_channels: 64             # 场景一致性编码器输出通道
+  imaging_channels: 64          # 成像真实性编码器输出通道
+  signal_channels: 64           # 信号自然性编码器输出通道
+  
+  # 融合模块配置
+  fusion_channels: 64           # 融合后统一伪影通道数
+  num_heads: 4                  # 多头自注意力头数
+  
+  # 分类头配置
+  hidden_dim: 256               # 分类头隐藏层维度
+  dropout: 0.1                  # Dropout概率
+
+# ==================== 数据配置 ====================
+data:
+  image_size: 512               # 图像尺寸
+  norm_type: "image_net"        # 归一化类型: image_net / standard / none
+  use_mask: false               # 是否加载mask（用于定位任务）
+  use_heavy_augment: false      # 是否使用强增强
+  strict_mode: false            # 严格数据验证模式
+
+# 训练集
+train_dataset:
+  path: "/mnt/public/public_datasets/OpenMMSecV2/jsons_v5/total_train.json"
+  target_domains: null          # 筛选特定域 (null=全部)
+  target_mani_types: null       # 筛选特定操作类型 (null=全部)
+  # 可选示例:
+  # target_domains: ["Doc", "deepfake", "AIGC", "IMDL"]
+  # target_mani_types: ["non-AIGC", "AIGC"]
+
+# 验证集
+val_dataset:
+  path: "/mnt/public/public_datasets/OpenMMSecV2/jsons_v5/total_val.json"
+  target_domains: null
+  target_mani_types: null
+
+# 测试集（多个）
+test_datasets:
+  - name: "OpenMMSecTest"
+    path: "/mnt/public/public_datasets/OpenMMSecV2/jsons_v5/total_ood_test.json"
+    target_domains: ["IMDL", "Doc", "deepfake", "AIGC"]
+
+# ==================== 训练参数 ====================
+training:
+  # 基础参数
+  epochs: 50
+  batch_size: 8
+  gradient_accumulation_steps: 1  # 梯度累积步数
+  
+  # 优化器
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-4
+    weight_decay: 1.0e-5
+    betas: [0.9, 0.999]
+  
+  # 学习率调度器
+  scheduler:
+    name: "CosineAnnealingLR"
+    T_max: 50                   # 周期数（通常等于epochs）
+    eta_min: 1.0e-6             # 最小学习率
+  
+  # 损失函数权重
+  loss_weights:
+    cls_loss: 1.0               # 分类损失权重
+    loc_loss: 0.5               # 定位损失权重 (如果use_mask=true)
+    sparse_loss: 0.1            # 稀疏正则化权重
+  
+  # 早停
+  early_stopping:
+    enabled: true
+    patience: 10                # 等待轮数
+    min_delta: 0.001            # 最小改善量
+
+# ==================== 测试参数 ====================
+testing:
+  batch_size: 64
+  save_predictions: false       # 是否保存预测结果
+  save_heatmaps: false          # 是否保存热力图
+
+# ==================== 评估指标 ====================
+evaluators:
+  - name: "Accuracy"
+  - name: "AUC"
+  - name: "F1"
+    init_config:
+      threshold: 0.5
+  - name: "Precision"
+  - name: "Recall"
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+  deterministic: false          # 确定性训练（会降低速度）
+
+# 分布式训练参数
+distributed:
+  world_size: 1                 # 节点数（自动计算GPU数）
+  local_rank: -1                # 本地rank（自动设置）
+  dist_backend: "nccl"          # 分布式后端
+  dist_url: "env://"
+
+# ==================== 日志配置 ====================
+logging:
+  print_freq: 50                # 打印频率（每N个batch）
+  save_freq: 5                  # 保存检查点频率（每N个epoch）
+  tensorboard: true             # 是否使用TensorBoard
+  wandb: false                  # 是否使用WandB
+  wandb_project: "forensic-detection"

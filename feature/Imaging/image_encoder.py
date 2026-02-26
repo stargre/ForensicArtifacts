@@ -164,40 +164,40 @@ class ImagingEncoder(nn.Module):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
 
-# ==================== 测试代码 ====================
-if __name__ == '__main__':
-    print("="*60)
-    print("测试成像真实性编码器")
-    print("="*60)
+# # ==================== 测试代码 ====================
+# if __name__ == '__main__':
+#     print("="*60)
+#     print("测试成像真实性编码器")
+#     print("="*60)
     
-    # 1. 创建模型
-    model = ImagingEncoder(out_channels=64)
-    print(f"✓ 模型参数量: {model.num_params:,}")
+#     # 1. 创建模型
+#     model = ImagingEncoder(out_channels=64)
+#     print(f"✓ 模型参数量: {model.num_params:,}")
     
-    # 2. 创建测试输入 (模拟已归一化的 RGB 图像)
-    batch_size = 2
-    H, W = 512, 512
+#     # 2. 创建测试输入 (模拟已归一化的 RGB 图像)
+#     batch_size = 2
+#     H, W = 512, 512
     
-    # 模拟 ImageNet 归一化后的图像
-    x = torch.randn(batch_size, 3, H, W)
+#     # 模拟 ImageNet 归一化后的图像
+#     x = torch.randn(batch_size, 3, H, W)
     
-    print(f"\n输入张量:")
-    print(f"  - Shape: {x.shape}")
-    print(f"  - Range: [{x.min():.3f}, {x.max():.3f}]")
+#     print(f"\n输入张量:")
+#     print(f"  - Shape: {x.shape}")
+#     print(f"  - Range: [{x.min():.3f}, {x.max():.3f}]")
     
-    # 3. 前向传播
-    print("\n开始前向传播...")
-    with torch.no_grad():
-        output = model(x)
+#     # 3. 前向传播
+#     print("\n开始前向传播...")
+#     with torch.no_grad():
+#         output = model(x)
     
-    print(f"\n输出张量:")
-    print(f"  - Shape: {output.shape}")
-    print(f"  - Range: [{output.min():.3f}, {output.max():.3f}]")
+#     print(f"\n输出张量:")
+#     print(f"  - Shape: {output.shape}")
+#     print(f"  - Range: [{output.min():.3f}, {output.max():.3f}]")
     
-    # 4. 验证形状
-    expected_shape = (batch_size, 64, H, W)
-    assert output.shape == expected_shape, f"输出形状错误! 期望 {expected_shape}, 得到 {output.shape}"
+#     # 4. 验证形状
+#     expected_shape = (batch_size, 64, H, W)
+#     assert output.shape == expected_shape, f"输出形状错误! 期望 {expected_shape}, 得到 {output.shape}"
     
-    print("\n" + "="*60)
-    print("✓ 测试通过!")
-    print("="*60)
+#     print("\n" + "="*60)
+#     print("✓ 测试通过!")
+#     print("="*60)

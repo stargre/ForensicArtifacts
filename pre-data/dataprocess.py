@@ -2,310 +2,589 @@ import os
 import json
 import torch
 from torch.utils.data import Dataset
-from torchvision import transforms
 from PIL import Image
 import numpy as np
 from pathlib import Path
+from collections import Counter
+
+# 使用 albumentations 进行数据增强
+import albumentations as albu
+from albumentations.pytorch import ToTensorV2
 
 
+# ======================== 数据增强器 ========================
+class ForensicTransform:
+    """
+    虚假图像检测专用数据增强器
+    
+    特性:
+        - 训练时: 丰富的增强策略（翻转、旋转、颜色、压缩、模糊、噪声）
+        - 测试时: 仅做尺寸调整
+        - 支持同步变换图像和mask
+        - 多种归一化策略
+    """
+    def __init__(self, 
+                 output_size=(512, 512), 
+                 norm_type='image_net',
+                 is_train=True):
+        """
+        Args:
+            output_size: 输出尺寸 (H, W)
+            norm_type: 归一化类型 ('image_net' / 'standard' / 'none')
+            is_train: 是否为训练模式
+        """
+        self.output_size = output_size
+        self.norm_type = norm_type
+        self.is_train = is_train
+        
+        # 构建变换流程
+        self.transform = self._build_transform()
+    
+    def _build_transform(self):
+        """构建完整的变换流程"""
+        if self.is_train:
+            common_transform = self._get_train_transform()
+        else:
+            common_transform = self._get_test_transform()
+        
+        post_transform = self._get_post_transform()
+        
+        # 合并变换
+        return albu.Compose([
+            *common_transform.transforms,
+            *post_transform.transforms
+        ], additional_targets={'mask': 'mask'})
+    
+    def _get_train_transform(self):
+        """训练时的数据增强"""
+        return albu.Compose([
+            # 1. 尺寸调整
+            albu.Resize(height=self.output_size[0], width=self.output_size[1]),
+            
+            # 2. 空间变换
+            albu.HorizontalFlip(p=0.5),
+            albu.Rotate(limit=15, p=0.5, border_mode=0),  # 旋转
+            
+            # 3. 颜色变换
+            albu.RandomBrightnessContrast(
+                brightness_limit=(-0.2, 0.2), 
+                contrast_limit=0.2, 
+                p=0.8
+            ),
+            albu.HueSaturationValue(
+                hue_shift_limit=10, 
+                sat_shift_limit=20, 
+                val_shift_limit=10, 
+                p=0.5
+            ),
+            
+            # 4. 压缩伪影（模拟真实场景）
+            albu.ImageCompression(quality_lower=80, quality_upper=100, p=0.3),
+            
+            # 5. 模糊
+            albu.GaussianBlur(blur_limit=(3, 7), p=0.3),
+            
+            # 6. 噪声
+            albu.GaussNoise(var_limit=(10.0, 50.0), p=0.2),
+            
+        ], additional_targets={'mask': 'mask'})
+    
+    def _get_test_transform(self):
+        """测试时仅做尺寸调整"""
+        return albu.Compose([
+            albu.Resize(height=self.output_size[0], width=self.output_size[1]),
+        ], additional_targets={'mask': 'mask'})
+    
+    def _get_post_transform(self):
+        """后处理：归一化 + 转Tensor"""
+        if self.norm_type == 'image_net':
+            return albu.Compose([
+                albu.Normalize(
+                    mean=[0.485, 0.456, 0.406], 
+                    std=[0.229, 0.224, 0.225]
+                ),
+                ToTensorV2(transpose_mask=True)
+            ], additional_targets={'mask': 'mask'})
+        
+        elif self.norm_type == 'standard':
+            return albu.Compose([
+                albu.Normalize(
+                    mean=[0.5, 0.5, 0.5], 
+                    std=[0.5, 0.5, 0.5]
+                ),
+                ToTensorV2(transpose_mask=True)
+            ], additional_targets={'mask': 'mask'})
+        
+        elif self.norm_type == 'none':
+            return albu.Compose([
+                albu.ToFloat(max_value=255.0),
+                ToTensorV2(transpose_mask=True)
+            ], additional_targets={'mask': 'mask'})
+        
+        else:
+            raise ValueError(f"不支持的归一化类型: {self.norm_type}，"
+                           f"请使用 'image_net', 'standard' 或 'none'")
+    
+    def __call__(self, image, mask=None):
+        """
+        应用变换
+        
+        Args:
+            image: numpy array (H, W, 3), uint8
+            mask: numpy array (H, W), 可选
+        
+        Returns:
+            image: torch.Tensor (3, H, W)
+            mask: torch.Tensor (1, H, W) 或 None
+        """
+        if mask is None:
+            # 无mask时创建虚拟mask
+            mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.float32)
+            augmented = self.transform(image=image, mask=mask)
+            return augmented['image'], None
+        else:
+            augmented = self.transform(image=image, mask=mask)
+            return augmented['image'], augmented['mask']
+
+
+class AdvancedForensicTransform(ForensicTransform):
+    """
+    高级数据增强器（可选更多增强策略）
+    """
+    def __init__(self, 
+                 output_size=(512, 512), 
+                 norm_type='image_net',
+                 is_train=True,
+                 use_heavy_augment=False):
+        """
+        Args:
+            use_heavy_augment: 是否使用更强的增强（用于困难样本）
+        """
+        self.use_heavy_augment = use_heavy_augment
+        super().__init__(output_size, norm_type, is_train)
+    
+    def _get_train_transform(self):
+        """训练时的数据增强（增强版）"""
+        base_transforms = [
+            albu.Resize(height=self.output_size[0], width=self.output_size[1]),
+            albu.HorizontalFlip(p=0.5),
+            albu.Rotate(limit=15, p=0.5, border_mode=0),
+            albu.RandomBrightnessContrast(
+                brightness_limit=(-0.2, 0.2), 
+                contrast_limit=0.2, 
+                p=0.8
+            ),
+            albu.HueSaturationValue(
+                hue_shift_limit=10, 
+                sat_shift_limit=20, 
+                val_shift_limit=10, 
+                p=0.5
+            ),
+            albu.ImageCompression(quality_lower=80, quality_upper=100, p=0.3),
+            albu.GaussianBlur(blur_limit=(3, 7), p=0.3),
+            albu.GaussNoise(var_limit=(10.0, 50.0), p=0.2),
+        ]
+        
+        if self.use_heavy_augment:
+            # 额外增强策略
+            heavy_transforms = [
+                albu.RandomScale(scale_limit=0.2, p=0.3),
+                albu.ShiftScaleRotate(
+                    shift_limit=0.1, 
+                    scale_limit=0.1, 
+                    rotate_limit=20, 
+                    p=0.5
+                ),
+                albu.OneOf([
+                    albu.MotionBlur(blur_limit=7),
+                    albu.MedianBlur(blur_limit=7),
+                    albu.GaussianBlur(blur_limit=7),
+                ], p=0.3),
+                albu.OneOf([
+                    albu.OpticalDistortion(distort_limit=0.3),
+                    albu.GridDistortion(num_steps=5, distort_limit=0.3),
+                ], p=0.2),
+                albu.CoarseDropout(
+                    max_holes=8, 
+                    max_height=32, 
+                    max_width=32, 
+                    p=0.2
+                ),
+            ]
+            base_transforms.extend(heavy_transforms)
+        
+        return albu.Compose(base_transforms, additional_targets={'mask': 'mask'})
+
+
+# ======================== 数据验证器 ========================
 class DataValidator:
     """
-    JSON数据格式验证器
+    JSON数据格式验证器（OpenMMSecV2格式）
     """
     @staticmethod
-    def validate_json_format(json_path):
+    def validate_json_format(json_path, strict_mode=False):
         """
-        验证JSON文件格式
-        Args:
-            json_path: JSON文件路径
-        Returns:
-            bool: 是否通过验证
-            str: 错误信息（如果有）
+        验证JSON文件格式并过滤无效样本
         """
         try:
             with open(json_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
-            # 检查顶层结构
-            if not isinstance(data, dict):
-                return False, "JSON根节点必须是字典类型"
-            
-            if 'images' not in data:
-                return False, "JSON缺少'images'字段"
-            
-            if not isinstance(data['images'], list):
-                return False, "'images'字段必须是列表类型"
-            
-            # 检查每个图像条目
-            for idx, item in enumerate(data['images']):
-                if not isinstance(item, dict):
-                    return False, f"第{idx}个图像条目必须是字典类型"
-                
-                # 必需字段检查
-                if 'path' not in item:
-                    return False, f"第{idx}个图像条目缺少'path'字段"
-                
-                if 'label' not in item:
-                    return False, f"第{idx}个图像条目缺少'label'字段"
-                
-                # 标签值检查
-                if item['label'] not in [0, 1]:
-                    return False, f"第{idx}个图像的标签必须是0或1，当前为{item['label']}"
-                
-                # 路径存在性检查
-                if not os.path.exists(item['path']):
-                    print(f"警告: 第{idx}个图像路径不存在: {item['path']}")
-            
-            return True, "验证通过"
-        
         except json.JSONDecodeError as e:
-            return False, f"JSON格式错误: {str(e)}"
+            raise ValueError(f"JSON格式错误: {str(e)}")
         except Exception as e:
-            return False, f"验证过程出错: {str(e)}"
+            raise ValueError(f"读取文件失败: {str(e)}")
+        
+        if not isinstance(data, list):
+            if strict_mode:
+                raise ValueError("JSON根节点必须是列表类型")
+            else:
+                print("[WARNING] JSON非列表格式，尝试转换...")
+                data = [data] if isinstance(data, dict) else []
+        
+        if len(data) == 0:
+            raise ValueError("JSON列表为空")
+        
+        required_keys = ["path", "label"]
+        
+        valid_samples = []
+        stats = {
+            'total': len(data),
+            'valid': 0,
+            'missing_fields': 0,
+            'missing_image': 0,
+            'corrupted_image': 0,
+            'invalid_label': 0,
+            'bad_mask': 0
+        }
+        
+        for i, sample in enumerate(data):
+            if not isinstance(sample, dict):
+                stats['missing_fields'] += 1
+                continue
+            
+            missing_keys = [k for k in required_keys if k not in sample]
+            if missing_keys:
+                stats['missing_fields'] += 1
+                if strict_mode:
+                    raise ValueError(f"样本 {i} 缺少必需字段: {missing_keys}")
+                continue
+            
+            label = sample["label"]
+            if label not in [0, 1]:
+                stats['invalid_label'] += 1
+                if strict_mode:
+                    raise ValueError(f"样本 {i} 标签必须是0或1")
+                continue
+            
+            image_path = sample["path"]
+            if not os.path.exists(image_path):
+                stats['missing_image'] += 1
+                if strict_mode:
+                    raise FileNotFoundError(f"图像文件不存在: {image_path}")
+                continue
+            
+            # 验证图像完整性
+            try:
+                with Image.open(image_path) as img:
+                    img.load()
+                    if img.mode in ("RGBA", "LA", "P"):
+                        _ = img.convert("RGB")
+            except (OSError, ValueError, IOError) as e:
+                stats['corrupted_image'] += 1
+                if strict_mode:
+                    raise ValueError(f"图像损坏: {image_path}")
+                continue
+            
+            # 检查mask
+            mask_path = sample.get("mask")
+            if mask_path is not None:
+                if not isinstance(mask_path, str):
+                    stats['bad_mask'] += 1
+                    sample["mask"] = None
+                elif not os.path.exists(mask_path):
+                    pass  # 不跳过样本
+            
+            valid_samples.append(sample)
+            stats['valid'] += 1
+        
+        print(f"\n[验证统计]")
+        print(f"  原始样本数: {stats['total']}")
+        print(f"  有效样本数: {stats['valid']}")
+        print(f"  缺少字段: {stats['missing_fields']}")
+        print(f"  图像缺失: {stats['missing_image']}")
+        print(f"  图像损坏: {stats['corrupted_image']}")
+        print(f"  标签非法: {stats['invalid_label']}")
+        
+        if stats['valid'] == 0:
+            raise ValueError("没有有效样本！")
+        
+        return valid_samples, stats
     
     @staticmethod
-    def get_dataset_statistics(json_path):
-        """
-        获取数据集统计信息
-        Args:
-            json_path: JSON文件路径
-        Returns:
-            dict: 统计信息
-        """
-        with open(json_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        total = len(data['images'])
-        real_count = sum(1 for item in data['images'] if item['label'] == 0)
-        fake_count = sum(1 for item in data['images'] if item['label'] == 1)
-        
-        valid_paths = sum(1 for item in data['images'] if os.path.exists(item['path']))
+    def get_dataset_statistics(samples):
+        """获取数据集详细统计信息"""
+        total = len(samples)
+        label_counts = Counter(s['label'] for s in samples)
+        domain_counts = Counter(s.get('domain', 'Unknown') for s in samples)
+        mani_type_counts = Counter(
+            s.get('mani_type', 'Unknown') 
+            for s in samples if s['label'] == 1
+        )
+        has_mask = sum(1 for s in samples if s.get('mask') is not None)
         
         return {
-            'total_images': total,
-            'real_images': real_count,
-            'fake_images': fake_count,
-            'valid_paths': valid_paths,
-            'invalid_paths': total - valid_paths,
-            'real_ratio': real_count / total if total > 0 else 0,
-            'fake_ratio': fake_count / total if total > 0 else 0
+            'total': total,
+            'label_distribution': dict(label_counts),
+            'domain_distribution': dict(domain_counts),
+            'mani_type_distribution': dict(mani_type_counts),
+            'samples_with_mask': has_mask,
+            'mask_ratio': has_mask / total if total > 0 else 0
         }
 
 
+# ======================== 数据集 ========================
 class ForensicDataset(Dataset):
     """
-    虚假图像检测数据集
-    支持数据筛选、统一缩放、标准化处理
+    虚假图像检测数据集（OpenMMSecV2格式）
+    
+    特性:
+        - 自动验证并过滤损坏样本
+        - 使用 albumentations 进行高效增强
+        - 支持多维度筛选
+        - 可选mask加载
+        - 动态域切换（课程学习）
     """
     def __init__(self, 
                  json_path, 
                  image_size=512,
-                 normalize=True,
-                 augment=False,
-                 filter_invalid=True,
-                 filter_labels=None):
+                 norm_type='image_net',
+                 is_train=True,
+                 use_mask=False,
+                 target_domains=None,
+                 target_labels=None,
+                 target_mani_types=None,
+                 use_heavy_augment=False,
+                 strict_mode=False):
         """
         Args:
             json_path: JSON配置文件路径
-            image_size: 统一图像尺寸 (默认512x512)
-            normalize: 是否进行ImageNet标准化
-            augment: 是否进行数据增强
-            filter_invalid: 是否过滤无效路径
-            filter_labels: 筛选特定标签 (None/0/1/[0,1])
+            image_size: 统一图像尺寸 (默认512)
+            norm_type: 归一化类型 ('image_net' / 'standard' / 'none')
+            is_train: 是否为训练模式
+            use_mask: 是否加载mask
+            target_domains: 筛选特定域
+            target_labels: 筛选特定标签
+            target_mani_types: 筛选特定操作类型
+            use_heavy_augment: 是否使用更强的增强
+            strict_mode: 严格验证模式
         """
         self.json_path = json_path
         self.image_size = image_size
-        self.normalize = normalize
-        self.augment = augment
+        self.is_train = is_train
+        self.use_mask = use_mask
+        self.target_domains = target_domains
         
-        # 验证JSON格式
-        is_valid, message = DataValidator.validate_json_format(json_path)
-        if not is_valid:
-            raise ValueError(f"JSON验证失败: {message}")
+        # 初始化增强器
+        self.transform = AdvancedForensicTransform(
+            output_size=(image_size, image_size),
+            norm_type=norm_type,
+            is_train=is_train,
+            use_heavy_augment=use_heavy_augment
+        )
         
-        print(f"✓ JSON格式验证通过: {json_path}")
+        # 验证JSON并加载样本
+        print(f"\n{'='*60}")
+        print(f"初始化数据集: {json_path}")
+        print(f"模式: {'训练' if is_train else '验证/测试'}")
+        print(f"{'='*60}")
         
-        # 加载数据
-        self._load_data(filter_invalid, filter_labels)
+        self.full_samples, self.validation_stats = DataValidator.validate_json_format(
+            json_path, 
+            strict_mode=strict_mode
+        )
         
-        # 构建数据变换
-        self._build_transforms()
+        # 应用筛选
+        self.samples = self._apply_filters(
+            self.full_samples, 
+            target_domains, 
+            target_labels, 
+            target_mani_types
+        )
         
         # 打印统计信息
         self._print_statistics()
     
-    def _load_data(self, filter_invalid, filter_labels):
-        """
-        加载并筛选数据
-        """
-        with open(self.json_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+    def _apply_filters(self, samples, domains, labels, mani_types):
+        """应用多维度筛选"""
+        filtered = samples
         
-        self.image_list = []
-        self.labels = []
+        if domains is not None:
+            if isinstance(domains, str):
+                domains = [domains]
+            filtered = [s for s in filtered if s.get('domain') in domains]
+            print(f"  [筛选] 域: {domains} → 剩余 {len(filtered)} 样本")
         
-        invalid_count = 0
-        filtered_count = 0
+        if labels is not None:
+            if isinstance(labels, int):
+                labels = [labels]
+            filtered = [s for s in filtered if s['label'] in labels]
+            print(f"  [筛选] 标签: {labels} → 剩余 {len(filtered)} 样本")
         
-        for item in data['images']:
-            img_path = item['path']
-            label = item['label']
-            
-            # 筛选无效路径
-            if filter_invalid and not os.path.exists(img_path):
-                invalid_count += 1
-                continue
-            
-            # 筛选特定标签
-            if filter_labels is not None:
-                if isinstance(filter_labels, list):
-                    if label not in filter_labels:
-                        filtered_count += 1
-                        continue
-                else:
-                    if label != filter_labels:
-                        filtered_count += 1
-                        continue
-            
-            self.image_list.append(img_path)
-            self.labels.append(label)
+        if mani_types is not None:
+            if isinstance(mani_types, str):
+                mani_types = [mani_types]
+            filtered = [s for s in filtered if s.get('mani_type') in mani_types]
+            print(f"  [筛选] 操作类型: {mani_types} → 剩余 {len(filtered)} 样本")
         
-        if invalid_count > 0:
-            print(f"  - 过滤了 {invalid_count} 个无效路径")
-        if filtered_count > 0:
-            print(f"  - 过滤了 {filtered_count} 个不符合标签要求的样本")
-    
-    def _build_transforms(self):
-        """
-        构建图像变换流程
-        """
-        transform_list = []
+        if len(filtered) == 0:
+            raise ValueError("筛选后无有效样本！")
         
-        # 1. 统一缩放到指定尺寸
-        transform_list.append(transforms.Resize((self.image_size, self.image_size)))
-        
-        # 2. 数据增强（仅训练时）
-        if self.augment:
-            transform_list.extend([
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomRotation(degrees=10),
-                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1)
-            ])
-        
-        # 3. 转为Tensor
-        transform_list.append(transforms.ToTensor())
-        
-        # 4. 标准化（使用ImageNet均值和标准差）
-        if self.normalize:
-            transform_list.append(
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], 
-                    std=[0.229, 0.224, 0.225]
-                )
-            )
-        
-        self.transform = transforms.Compose(transform_list)
+        return filtered
     
     def _print_statistics(self):
-        """
-        打印数据集统计信息
-        """
-        total = len(self.image_list)
-        real_count = sum(1 for label in self.labels if label == 0)
-        fake_count = sum(1 for label in self.labels if label == 1)
+        """打印数据集统计信息"""
+        stats = DataValidator.get_dataset_statistics(self.samples)
         
-        print(f"\n数据集统计信息:")
-        print(f"  - 总样本数: {total}")
-        print(f"  - 真实图像: {real_count} ({real_count/total*100:.2f}%)")
-        print(f"  - 伪造图像: {fake_count} ({fake_count/total*100:.2f}%)")
-        print(f"  - 图像尺寸: {self.image_size}×{self.image_size}")
-        print(f"  - 数据增强: {'是' if self.augment else '否'}")
-        print(f"  - 标准化: {'是' if self.normalize else '否'}\n")
+        print(f"\n{'='*60}")
+        print(f"数据集统计")
+        print(f"{'='*60}")
+        print(f"总样本数: {stats['total']}")
+        
+        label_dist = stats['label_distribution']
+        print(f"\n标签分布:")
+        for label, count in sorted(label_dist.items()):
+            label_name = "Real" if label == 0 else "Fake"
+            print(f"  {label_name}: {count} ({count/stats['total']*100:.2f}%)")
+        
+        if stats['domain_distribution']:
+            print(f"\n域分布:")
+            for domain, count in sorted(stats['domain_distribution'].items(), 
+                                       key=lambda x: -x[1])[:10]:
+                print(f"  {domain}: {count}")
+        
+        print(f"\n配置信息:")
+        print(f"  图像尺寸: {self.image_size}×{self.image_size}")
+        print(f"  训练模式: {'是' if self.is_train else '否'}")
+        print(f"  加载Mask: {'是' if self.use_mask else '否'}")
+        print(f"  带Mask样本: {stats['samples_with_mask']} ({stats['mask_ratio']*100:.2f}%)")
+        print(f"{'='*60}\n")
     
     def __len__(self):
-        return len(self.image_list)
+        return len(self.samples)
     
     def __getitem__(self, idx):
-        """
-        获取单个样本
-        Returns:
-            image: 预处理后的图像张量 [3, H, W]
-            label: 标签 (0=真实, 1=伪造)
-        """
-        # 加载图像
-        img_path = self.image_list[idx]
+        """获取单个样本"""
+        sample = self.samples[idx]
+        image_path = sample['path']
+        label = sample['label']
+        mask_path = sample.get('mask')
         
+        # 加载图像
         try:
-            image = Image.open(img_path).convert('RGB')
+            image = Image.open(image_path).convert("RGB")
+            image = np.array(image)  # (H, W, 3), uint8
         except Exception as e:
-            print(f"警告: 无法加载图像 {img_path}, 错误: {str(e)}")
-            # 返回黑色图像作为fallback
-            image = Image.new('RGB', (self.image_size, self.image_size), (0, 0, 0))
+            raise RuntimeError(f"加载图像失败: {image_path}") from e
+        
+        # 加载mask
+        if self.use_mask:
+            if mask_path and os.path.exists(mask_path):
+                try:
+                    mask = Image.open(mask_path).convert("L")
+                    mask = mask.resize((image.shape[1], image.shape[0]), Image.NEAREST)
+                    mask = np.array(mask)
+                    mask = (mask > 128).astype(np.float32)  # (H, W)
+                except Exception as e:
+                    print(f"[WARNING] Mask加载失败: {mask_path}")
+                    mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.float32)
+            else:
+                mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.float32)
+        else:
+            mask = None
         
         # 应用变换
-        if self.transform:
-            image = self.transform(image)
+        image, mask = self.transform(image, mask)
         
-        # 获取标签
-        label = torch.tensor(self.labels[idx], dtype=torch.float32)
+        # 处理mask维度
+        if mask is not None:
+            if not torch.is_tensor(mask):
+                mask = torch.from_numpy(mask).float()
+            if mask.ndim == 2:
+                mask = mask.unsqueeze(0)  # (H, W) → (1, H, W)
         
-        return image, label
-    
-    def get_sample_info(self, idx):
-        """
-        获取样本的详细信息（用于调试）
-        """
-        return {
-            'index': idx,
-            'path': self.image_list[idx],
-            'label': self.labels[idx],
-            'label_name': 'Real' if self.labels[idx] == 0 else 'Fake'
+        # 构建输出
+        output = {
+            'image': image,
+            'label': torch.tensor(label, dtype=torch.long),
+            'domain': sample.get('domain', 'Unknown'),
+            'mani_type': sample.get('mani_type', 'Unknown'),
+            'path': image_path
         }
+        
+        if self.use_mask:
+            output['mask'] = mask
+        
+        return output
+    
+    def update_domains(self, new_domains):
+        """动态更新目标域（用于课程学习）"""
+        self.target_domains = new_domains
+        self.samples = self._apply_filters(self.full_samples, new_domains, None, None)
+        print(f"[域切换] 更新为 {new_domains}，当前样本数: {len(self.samples)}")
+    
+    def get_class_distribution(self):
+        """获取类别分布"""
+        return Counter(s['label'] for s in self.samples)
+    
+    def __str__(self):
+        class_dist = self.get_class_distribution()
+        class_info = ", ".join([f"Label {l}: {c}" for l, c in sorted(class_dist.items())])
+        return (f"ForensicDataset from: {self.json_path}\n"
+                f"总样本数: {len(self.samples)}\n"
+                f"类别分布: {class_info}")
 
 
+# ======================== 数据加载器工厂 ========================
 def create_dataloaders(train_json, 
                        val_json, 
                        batch_size=8,
                        num_workers=4,
                        image_size=512,
-                       pin_memory=True):
+                       norm_type='image_net',
+                       pin_memory=True,
+                       target_domains=None,
+                       target_mani_types=None,
+                       use_mask=False,
+                       use_heavy_augment=False,
+                       strict_mode=False):
     """
-    便捷函数：创建训练和验证数据加载器
-    
-    Args:
-        train_json: 训练集JSON路径
-        val_json: 验证集JSON路径
-        batch_size: 批次大小
-        num_workers: 数据加载线程数
-        image_size: 图像尺寸
-        pin_memory: 是否固定内存
-    
-    Returns:
-        train_loader: 训练数据加载器
-        val_loader: 验证数据加载器
+    创建训练和验证数据加载器
     """
     from torch.utils.data import DataLoader
     
-    print("="*60)
-    print("初始化训练集...")
-    print("="*60)
+    # 训练集
     train_dataset = ForensicDataset(
         json_path=train_json,
         image_size=image_size,
-        normalize=True,
-        augment=True,  # 训练集开启数据增强
-        filter_invalid=True
+        norm_type=norm_type,
+        is_train=True,
+        use_mask=use_mask,
+        target_domains=target_domains,
+        target_mani_types=target_mani_types,
+        use_heavy_augment=use_heavy_augment,
+        strict_mode=strict_mode
     )
     
-    print("="*60)
-    print("初始化验证集...")
-    print("="*60)
+    # 验证集
     val_dataset = ForensicDataset(
         json_path=val_json,
         image_size=image_size,
-        normalize=True,
-        augment=False,  # 验证集关闭数据增强
-        filter_invalid=True
+        norm_type=norm_type,
+        is_train=False,  # 关闭增强
+        use_mask=use_mask,
+        target_domains=target_domains,
+        target_mani_types=target_mani_types,
+        strict_mode=strict_mode
     )
     
     train_loader = DataLoader(
@@ -314,7 +593,7 @@ def create_dataloaders(train_json,
         shuffle=True,
         num_workers=num_workers,
         pin_memory=pin_memory,
-        drop_last=True  # 丢弃最后不完整的batch
+        drop_last=True
     )
     
     val_loader = DataLoader(
@@ -325,86 +604,10 @@ def create_dataloaders(train_json,
         pin_memory=pin_memory
     )
     
-    print("="*60)
-    print("数据加载器创建完成!")
-    print(f"  - 训练批次数: {len(train_loader)}")
-    print(f"  - 验证批次数: {len(val_loader)}")
-    print("="*60)
+    print(f"\n{'='*60}")
+    print(f"数据加载器创建完成!")
+    print(f"  训练批次数: {len(train_loader)}")
+    print(f"  验证批次数: {len(val_loader)}")
+    print(f"{'='*60}\n")
     
     return train_loader, val_loader
-
-
-def validate_and_analyze_json(json_path):
-    """
-    独立工具：验证并分析JSON文件
-    
-    使用示例:
-        python -c "from pre_data.dataprocess import validate_and_analyze_json; \
-                   validate_and_analyze_json('data/train.json')"
-    """
-    print("\n" + "="*60)
-    print(f"正在分析: {json_path}")
-    print("="*60)
-    
-    # 验证格式
-    is_valid, message = DataValidator.validate_json_format(json_path)
-    
-    if is_valid:
-        print(f"✓ {message}")
-        
-        # 获取统计信息
-        stats = DataValidator.get_dataset_statistics(json_path)
-        
-        print("\n统计信息:")
-        print(f"  总图像数: {stats['total_images']}")
-        print(f"  真实图像: {stats['real_images']} ({stats['real_ratio']*100:.2f}%)")
-        print(f"  伪造图像: {stats['fake_images']} ({stats['fake_ratio']*100:.2f}%)")
-        print(f"  有效路径: {stats['valid_paths']}")
-        print(f"  无效路径: {stats['invalid_paths']}")
-        
-        if stats['invalid_paths'] > 0:
-            print(f"\n⚠ 警告: 发现 {stats['invalid_paths']} 个无效路径!")
-    else:
-        print(f"✗ {message}")
-    
-    print("="*60 + "\n")
-    
-    return is_valid
-
-
-# ==================== 测试代码 ====================
-if __name__ == '__main__':
-    # 测试示例
-    
-    # 1. 创建示例JSON文件
-    sample_train_json = {
-        "images": [
-            {"path": "data/real/img1.jpg", "label": 0},
-            {"path": "data/real/img2.jpg", "label": 0},
-            {"path": "data/fake/img1.jpg", "label": 1},
-            {"path": "data/fake/img2.jpg", "label": 1}
-        ]
-    }
-    
-    os.makedirs('data', exist_ok=True)
-    with open('data/sample_train.json', 'w', encoding='utf-8') as f:
-        json.dump(sample_train_json, f, indent=2, ensure_ascii=False)
-    
-    print("已创建示例JSON文件: data/sample_train.json\n")
-    
-    # 2. 验证JSON格式
-    validate_and_analyze_json('data/sample_train.json')
-    
-    # 3. 测试数据集加载（如果有真实数据的话）
-    # dataset = ForensicDataset(
-    #     json_path='data/sample_train.json',
-    #     image_size=512,
-    #     normalize=True,
-    #     augment=True
-    # )
-    # 
-    # print(f"数据集长度: {len(dataset)}")
-    # if len(dataset) > 0:
-    #     img, label = dataset[0]
-    #     print(f"图像shape: {img.shape}")
-    #     print(f"标签: {label}")

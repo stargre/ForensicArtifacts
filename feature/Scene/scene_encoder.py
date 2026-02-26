@@ -267,7 +267,7 @@ class SceneEncoder(nn.Module):
         - Attention Rollout: 聚合跨层注意力
         - 双线性插值上采样至原始分辨率
     """
-    def __init__(self, img_size=512, out_channels=1):
+    def __init__(self, img_size=512, out_channels=64):
         super().__init__()
         
         # 特征提取器
@@ -287,6 +287,8 @@ class SceneEncoder(nn.Module):
         self.patch_size = 16
         self.num_patches_per_side = img_size // 16  # 512/16 = 32
         self.out_channels = out_channels
+
+        self.channel_expand = nn.Conv2d(1, out_channels, kernel_size=1)
 
     def forward(self, x):
         """
@@ -321,6 +323,9 @@ class SceneEncoder(nn.Module):
             mode='bilinear',
             align_corners=False
         )  # [B, 1, 512, 512]
+
+        # Step 6: 扩展到64通道
+        anomaly_map = self.channel_expand(anomaly_map)  # [B, 64, 512, 512]
         
         return anomaly_map
 
