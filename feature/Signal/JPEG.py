@@ -70,10 +70,20 @@ def benford_estimate_qf(dct_block):
     deviation = np.sum((observed - benford) ** 2)
     return 1.0 / (1.0 + deviation)  # normalize to [0,1]
 
-def extract_jpeg_feature(image_tensor):
+def extract_jpeg_feature(image_np):
     """
-    Compute double JPEG inconsistency map M_jpeg ∈ R^{H×W}
+    Compute double JPEG inconsistency map
+    
+    输入: (H, W, 3) uint8 RGB numpy array
+    输出: (H, W) float32 numpy array
     """
+    
+    if isinstance(image_np, np.ndarray):
+        # numpy → tensor
+        image_tensor = transforms.ToTensor()(image_np)  # (3, H, W)
+    else:
+        image_tensor = image_np
+    
     # Step 1: Convert to Y channel
     y_channel = rgb2ycbcr(image_tensor.numpy())  # (H, W)
     
@@ -109,10 +119,10 @@ def extract_jpeg_feature(image_tensor):
     m_jpeg = zoom(d_jpeg, (scale_h, scale_w), order=1)  # bilinear interpolation
     m_jpeg = m_jpeg[:H_orig, :W_orig]  # crop to original size
     
-    # Step 6: Apply normalization to ensure values are in [0, 1]
-    m_jpeg = normalize_to_01(m_jpeg)
+    # 归一化
+    m_jpeg = (m_jpeg - m_jpeg.min()) / (m_jpeg.max() - m_jpeg.min() + 1e-8)
     
-    return m_jpeg
+    return m_jpeg.astype(np.float32)  # 返回 (H, W)
 
 # # ======================
 # # Example Usage

@@ -1,0 +1,172 @@
+# config/train_config_with_curriculum.yaml
+
+# ==================== 运行控制 ====================
+gpus: "4,5"
+flag: train
+
+# 日志和检查点
+log_dir: "./log/forensic_cross/static_curriculum"
+checkpoint_path: null
+save_dir: "./checkpoints/forensic_cross/static_curriculum"  # ✅ 修改保存路径
+resume: false
+
+# ==================== 模型配置 ====================
+model:
+  scene_in_channels: 4
+  signal_in_channels: 3
+  imaging_in_channels: 32
+  
+  scene_channels: 64
+  imaging_channels: 64
+  signal_channels: 64
+  
+  fusion_channels: 64
+  reduction: 4
+  
+  hidden_dim: 256
+  dropout: 0.1
+
+# ==================== 数据配置 ====================
+data:
+  strict_mode: false
+
+# 训练集
+train_dataset:
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/train_medium_with_features.json"
+  target_domains: null
+  target_mani_types: null
+
+# 验证集
+val_dataset:
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/val_medium_with_features.json"
+  target_domains: null
+  target_mani_types: null
+
+# 测试集
+test_datasets:
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small.json"
+  target_domains: ["IMDL", "Doc", "deepfake", "AIGC"]
+
+# ==================== 训练参数 ====================
+training:
+  epochs: 30                    # ✅ 增加总epoch数以配合课程学习
+  batch_size: 16               
+  gradient_accumulation_steps: 1
+  
+  # 特征增强
+  use_feature_augment: true
+  flip_prob: 0.5
+  rotate_prob: 0.3
+  channel_drop_prob: 0.2
+  noise_prob: 0.3
+  noise_std: 0.05
+
+  warmup_epochs: 3
+  grad_clip: 1.0
+
+  # 优化器
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-4
+    weight_decay: 1.0e-4
+    betas: [0.9, 0.999]
+  
+  # 学习率调度器
+  scheduler:
+    name: "CosineAnnealingLR"
+    T_max: 30               
+    eta_min: 1.0e-6
+  
+  # 损失函数权重
+  loss_weights:
+    cls_loss: 1.0
+    sparse_loss: 0.1
+  
+  # 早停
+  early_stopping:
+    enabled: true
+    patience: 15                # 耐心值
+    min_delta: 0.001
+
+# ==================== 🆕 课程学习配置 ====================
+curriculum:
+  # 课程学习总开关
+  enabled: true                 # true=启用课程学习, false=使用全部数据训练
+  
+  #  管理器类型（新增）
+  # - static:    静态课程学习（按置信度从易到难）
+  # - dynamic:   动态置信度管理器（根据训练过程动态调整）
+  # - reverse:   反向课程学习（从难到易）
+  # - mixed:     混合策略（结合多种策略）
+  manager_type: "static"
+  # 调度策略
+  # - linear:      线性增长（稳定）
+  # - exponential: 指数增长（前期慢，后期快）
+  # - step:        阶梯式增长（每N个epoch增加固定比例）
+  # - cosine:      余弦增长（平滑）
+  # - root:        平方根增长（前期快，后期慢）
+  schedule_type: "linear"
+  
+  # 数据比例控制
+  start_ratio: 0.3              # 初始使用30%的高置信度数据
+  end_ratio: 1.0                # 最终使用100%的数据
+  
+  # 课程周期
+  total_epochs: 15              # 课程学习持续30个epoch，之后一直使用全部数据
+  warmup_epochs: 2              # 前2个epoch保持start_ratio不变（预热期）
+
+# ==================== 动态管理器专用配置 ====================
+  dynamic:
+    # 置信度更新方式
+    update_frequency: 1         # 每N个epoch更新一次置信度
+    momentum: 0.9               # 置信度更新动量（EMA）
+    use_loss_as_confidence: true  # 使用loss计算置信度
+    temperature: 1.0            # 置信度温度系数
+    
+    # 自适应阈值
+    adaptive_threshold: true    # 是否使用自适应阈值
+    target_accuracy: 0.85       # 目标准确率（用于调整采样）
+    
+  # ==================== 反向管理器专用配置 ====================
+  reverse:
+    # 反向策略：从难样本开始训练
+    hard_sample_ratio: 0.3      # 初始使用30%最难样本
+    transition_epoch: 10        # 过渡期，之后逐渐加入简单样本
+# ==================== 测试参数 ====================
+testing:
+  batch_size: 64
+  save_predictions: false
+  save_heatmaps: false
+
+# ==================== 评估指标 ====================
+evaluators:
+  - name: "Accuracy"
+  - name: "AUC"
+  - name: "F1"
+    init_config:
+      threshold: 0.5
+  - name: "Precision"
+  - name: "Recall"
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+  deterministic: false
+
+# 分布式训练参数
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"
+
+# ==================== 日志配置 ====================
+logging:
+  print_freq: 10
+  save_freq: 5
+  tensorboard: true
+  wandb: false
+  wandb_project: "forensic-detection"

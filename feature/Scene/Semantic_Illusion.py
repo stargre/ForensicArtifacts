@@ -276,7 +276,7 @@ class SemanticConsistencyChecker:
             align_corners=False
         ).squeeze(0).permute(1, 2, 0)  # (512, 512, 768)
 
-        return patch_tokens.cpu().numpy().astype(np.float32)
+        return patch_tokens.detach().cpu().numpy().astype(np.float32)
     
 
     @torch.no_grad()

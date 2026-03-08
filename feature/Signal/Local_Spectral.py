@@ -31,30 +31,43 @@ def make_divisible(img_tensor, block_size=8):
 #   spec_lr: (H//8, W//8) —— RAW BLOCK-LEVEL FEATURE (USE THIS FOR DOWNSTREAM)
 #   spec_hr: (H, W)       —— BILINEAR UPSAMPLED (ONLY FOR VISUALIZATION)
 # ======================
-def extract_spectral_feature(image, block_size=8, lam=0.5, eps=1e-6):
+def extract_spectral_feature(image_np, block_size=8, lam=0.5, eps=1e-6):
     """
-    Compute spectral anomaly feature as per Eq.(17), WITHOUT any post-processing.
-    Input:
-        image: (C, H, W) tensor in [0, 255] or [0, 1]
-    Output:
-        spec_lr: (H//bs, W//bs) —— raw block-level feature (use for analysis)
-        spec_hr: (H, W)         —— upsampled for visualization only
+    Compute spectral anomaly feature as per Eq.(17)
+    
+    输入: (H, W, 3) uint8 RGB numpy array
+    输出: (H, W) float32 numpy array
     """
-    device = image.device
-    dtype = image.dtype
+    
+    # 新增：处理输入格式
+    if isinstance(image_np, np.ndarray):
+        # numpy uint8 → tensor
+        img_tensor = transforms.ToTensor()(image_np)  # (3, H, W), float [0,1]
+    else:
+        img_tensor = image_np  # 已经是 tensor
+    
+    device = img_tensor.device if hasattr(img_tensor, 'device') else 'cpu'
+    dtype = img_tensor.dtype
 
     # Normalize to [0,1] if needed (preserve linearity)
-    if image.max() > 1.0:
-        image = image / 255.0
+    if img_tensor.max() > 1.0:
+        img_tensor = img_tensor / 255.0
 
     # Convert to grayscale: (C, H, W) -> (1, H, W)
-    if image.shape[0] == 3:
-        image = torch.mean(image, dim=0, keepdim=True)  # (1, H, W)
-    elif image.shape[0] != 1:
+    if img_tensor.shape[0] == 3:
+        img_tensor = torch.mean(img_tensor, dim=0, keepdim=True)  # (1, H, W)
+    elif img_tensor.shape[0] != 1:
         raise ValueError("Input must be RGB or grayscale")
 
-    C, H, W = image.shape
-    assert H % block_size == 0 and W % block_size == 0, f"Image {H}x{W} not divisible by {block_size}"
+    C, H, W = img_tensor.shape
+    
+    # 自动 padding 到 block_size 整除
+    pad_h = (block_size - H % block_size) % block_size
+    pad_w = (block_size - W % block_size) % block_size
+    if pad_h > 0 or pad_w > 0:
+        img_tensor = F.pad(img_tensor.unsqueeze(0), (0, pad_w, 0, pad_h), mode='reflect').squeeze(0)
+    
+    C, H_pad, W_pad = img_tensor.shape
 
     # Precompute DCT matrix (standard DCT-II)
     N = block_size
@@ -66,7 +79,7 @@ def extract_spectral_feature(image, block_size=8, lam=0.5, eps=1e-6):
     DCT_mat = DCT_mat.to(device)
 
     # Unfold into non-overlapping blocks: (1, H, W) -> (N_blocks, bs, bs)
-    image_unsq = image.unsqueeze(0)  # (1, 1, H, W)
+    image_unsq = img_tensor.unsqueeze(0)  # (1, 1, H, W)
     blocks = F.unfold(image_unsq, kernel_size=block_size, stride=block_size)  # (1, bs*bs, N)
     N_blocks = blocks.shape[-1]
     blocks = blocks.view(1, block_size, block_size, N_blocks)
@@ -80,15 +93,15 @@ def extract_spectral_feature(image, block_size=8, lam=0.5, eps=1e-6):
     ac = dct_coeffs[:, 1:, 1:]  # (N, 7, 7)
 
     # Compute AC entropy (Shannon)
-    ac_flat = ac.reshape(N_blocks, -1)  # ✅ Use reshape to avoid contiguous error
+    ac_flat = ac.reshape(N_blocks, -1)
     ac_abs = torch.abs(ac_flat)
     ac_energy = ac_abs + eps
     p_uv = ac_energy / ac_energy.sum(dim=1, keepdim=True)  # (N, 49)
     entropy = -(p_uv * torch.log(p_uv + eps)).sum(dim=1)  # (N,)
 
     # Reshape DC to spatial grid
-    h_blocks = H // block_size
-    w_blocks = W // block_size
+    h_blocks = H_pad // block_size
+    w_blocks = W_pad // block_size
     dc_grid = dc.view(h_blocks, w_blocks)  # (h_b, w_b)
 
     # Compute |∇DC| via central differences
@@ -100,19 +113,19 @@ def extract_spectral_feature(image, block_size=8, lam=0.5, eps=1e-6):
     # Combine: S_spec = entropy + λ * |∇DC|
     spec_lr = entropy.view(h_blocks, w_blocks) + lam * dc_grad_mag  # (H//8, W//8)
 
-    # Upsample ONLY for visualization (do NOT use this for features!)
+    # Upsample to original size (before padding)
     spec_hr = F.interpolate(
         spec_lr.unsqueeze(0).unsqueeze(0),
-        size=(H, W),
+        size=(H, W),  # 使用原始尺寸，不是 padding 后的
         mode='bilinear',
         align_corners=False
     ).squeeze(0).squeeze(0)  # (H, W)
 
-    spec_lr_normalized = normalize_to_01(spec_lr.cpu().numpy())
-    spec_hr_normalized = normalize_to_01(spec_hr.cpu().numpy())
-
-    return spec_lr_normalized, spec_hr_normalized  # RETURN BOTH
-
+    # 修改：归一化并返回 numpy
+    spec_hr_np = spec_hr.cpu().numpy()
+    spec_hr_np = (spec_hr_np - spec_hr_np.min()) / (spec_hr_np.max() - spec_hr_np.min() + 1e-8)
+    
+    return spec_hr_np.astype(np.float32)  #  只返回 (H, W)
 # # ======================
 # # Main: Feature Extraction Pipeline
 # # ======================

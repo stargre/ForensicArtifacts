@@ -1,24 +1,29 @@
 # ==================== 运行控制 ====================
 # DDP 分布式训练
-gpus: "0,1"                    # 使用的GPU编号
+gpus: "4,5"                    # 使用的GPU编号
 flag: train                     # train / test
 
 # 日志和检查点
-log_dir: "./log/forensic_cross"
+log_dir: "./log/forensic_cross/noncurriculum"
 checkpoint_path: null           # 加载预训练权重路径 (null=从头训练)
 save_dir: "./checkpoints/forensic_cross/noncurriculum"
 resume: false                   # 是否从checkpoint恢复训练
 
 # ==================== 模型配置 ====================
 model:
-  # 编码器通道配置
-  scene_channels: 64             # 场景一致性编码器输出通道
+  # 输入特征通道数（与预提取特征匹配）
+  scene_in_channels: 4          # 场景特征: semantic, depth, lighting, layout
+  signal_in_channels: 3         # 信号特征: spectral, resampling, jpeg
+  imaging_in_channels: 32        # 成像特征: prnu(1) + srm(30) + cfa(1)
+  
+  # 编码器输出通道配置
+  scene_channels: 64            # 场景一致性编码器输出通道
   imaging_channels: 64          # 成像真实性编码器输出通道
   signal_channels: 64           # 信号自然性编码器输出通道
   
   # 融合模块配置
   fusion_channels: 64           # 融合后统一伪影通道数
-  num_heads: 4                  # 多头自注意力头数
+  reduction: 4                  # SE注意力缩减比例
   
   # 分类头配置
   hidden_dim: 256               # 分类头隐藏层维度
@@ -26,15 +31,42 @@ model:
 
 # ==================== 数据配置 ====================
 data:
-  image_size: 512               # 图像尺寸
-  norm_type: "image_net"        # 归一化类型: image_net / standard / none
-  use_mask: false               # 是否加载mask（用于定位任务）
-  use_heavy_augment: false      # 是否使用强增强
+  # ❌ 删除：不再需要 image_size 和 norm_type（特征已固定512×512）
+  # image_size: 512             
+  # norm_type: "image_net"      
+  
+  # ❌ 删除：不再需要数据增强相关参数
+  # use_heavy_augment: false    
+  
   strict_mode: false            # 严格数据验证模式
+
+
+# ==================== 🆕 课程学习配置 ====================
+curriculum:
+  # 课程学习总开关
+  enabled: false                 # true=启用课程学习, false=使用全部数据训练
+  
+  # 调度策略
+  # - linear:      线性增长（稳定）
+  # - exponential: 指数增长（前期慢，后期快）
+  # - step:        阶梯式增长（每N个epoch增加固定比例）
+  # - cosine:      余弦增长（平滑）
+  # - root:        平方根增长（前期快，后期慢）
+  schedule_type: "linear"
+  
+  # 数据比例控制
+  start_ratio: 0.3              # 初始使用30%的高置信度数据
+  end_ratio: 1.0                # 最终使用100%的数据
+  
+  # 课程周期
+  total_epochs: 20              # 课程学习持续30个epoch，之后一直使用全部数据
+  warmup_epochs: 2              # 前2个epoch保持start_ratio不变（预热期）
+
 
 # 训练集
 train_dataset:
-  path: "/mnt/public/public_datasets/OpenMMSecV2/jsons_v5/train.json"
+  # 使用带特征路径的 JSON 文件
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/train_medium_with_features.json"
   target_domains: null          # 筛选特定域 (null=全部)
   target_mani_types: null       # 筛选特定操作类型 (null=全部)
   # 可选示例:
@@ -43,40 +75,55 @@ train_dataset:
 
 # 验证集
 val_dataset:
-  path: "/mnt/public/public_datasets/OpenMMSecV2/jsons_v5/total_val.json"
+  # 使用带特征路径的 JSON 文件
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/val_medium_with_features.json"
+  # 或者你的其他验证集（需要先运行特征提取）
+  # path: "/mnt/data3/zhiyu/Data/json/mini_mmsec_with_features.json"
   target_domains: null
   target_mani_types: null
 
 # 测试集（多个）
 test_datasets:
-  - name: "OpenMMSecTest"
-    path: "/mnt/public/public_datasets/OpenMMSecV2/jsons_v5/total_ood_test.json"
-    target_domains: ["IMDL", "Doc", "deepfake", "AIGC"]
+  # 使用带特征路径的 JSON 文件
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small.json"
+  # 或原路径（需要先提取特征）
+  # path: "/mnt/public/public_datasets/OpenMMSecV2/jsons_v5/total_ood_test_with_features.json"
+  target_domains: ["IMDL", "Doc", "deepfake", "AIGC"]
 
 # ==================== 训练参数 ====================
 training:
   # 基础参数
-  epochs: 50
-  batch_size: 8
-  gradient_accumulation_steps: 1  # 梯度累积步数
-  
+  epochs: 30
+  batch_size: 16               
+  gradient_accumulation_steps: 1
+  use_feature_augment: true  # 是否使用特征增强
+  flip_prob: 0.5
+  rotate_prob: 0.3
+  channel_drop_prob: 0.2
+  noise_prob: 0.3
+  noise_std: 0.05
+
+  warmup_epochs: 5              # 预热轮数，0 表示不预热
+  grad_clip: 1.0                # 梯度最大范数，0 表示不裁剪
+
   # 优化器
   optimizer:
     name: "AdamW"
     lr: 1.0e-4
-    weight_decay: 1.0e-5
+    weight_decay: 1.0e-4
     betas: [0.9, 0.999]
   
   # 学习率调度器
   scheduler:
     name: "CosineAnnealingLR"
-    T_max: 50                   # 周期数（通常等于epochs）
+    T_max: 30                   # 周期数（通常等于epochs）
     eta_min: 1.0e-6             # 最小学习率
   
   # 损失函数权重
   loss_weights:
     cls_loss: 1.0               # 分类损失权重
-    loc_loss: 0.5               # 定位损失权重 (如果use_mask=true)
+    # ❌ 删除：没有 mask，不需要定位损失
+    # loc_loss: 0.5             
     sparse_loss: 0.1            # 稀疏正则化权重
   
   # 早停
@@ -87,7 +134,7 @@ training:
 
 # ==================== 测试参数 ====================
 testing:
-  batch_size: 64
+  batch_size: 64                # ✅ 可适当增大
   save_predictions: false       # 是否保存预测结果
   save_heatmaps: false          # 是否保存热力图
 
@@ -104,7 +151,7 @@ evaluators:
 # ==================== 系统配置 ====================
 system:
   device: "cuda"
-  num_workers: 8
+  num_workers: 8                # ✅ 可适当增大（特征加载更快）
   pin_memory: true
   seed: 42
   deterministic: false          # 确定性训练（会降低速度）
@@ -118,7 +165,7 @@ distributed:
 
 # ==================== 日志配置 ====================
 logging:
-  print_freq: 50                # 打印频率（每N个batch）
+  print_freq: 10                # 打印频率（每N个batch）
   save_freq: 5                  # 保存检查点频率（每N个epoch）
   tensorboard: true             # 是否使用TensorBoard
   wandb: false                  # 是否使用WandB

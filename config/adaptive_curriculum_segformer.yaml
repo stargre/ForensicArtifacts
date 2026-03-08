@@ -1,0 +1,157 @@
+# config/adaptive_curriculum.yaml
+
+# ==================== 运行控制 ====================
+gpus: "4,5"
+flag: train
+
+# 日志和检查点
+log_dir: "./log/forensic_cross/adaptive_curriculum"
+checkpoint_path: null
+save_dir: "./checkpoints/forensic_cross/adaptive_curriculum"
+resume: false
+
+# ==================== 模型配置 ====================
+model:
+  scene_in_channels: 4
+  signal_in_channels: 3
+  imaging_in_channels: 32
+  
+  scene_channels: 64
+  imaging_channels: 64
+  signal_channels: 64
+  
+  fusion_channels: 64
+  reduction: 4
+  
+  hidden_dim: 256
+  dropout: 0.1
+
+# ==================== 数据配置 ====================
+data:
+  strict_mode: false
+
+# 训练集
+train_dataset:
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/train_medium_with_features.json"
+  target_domains: null
+  target_mani_types: null
+
+# 验证集
+val_dataset:
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/val_medium_with_features.json"
+  target_domains: null
+  target_mani_types: null
+
+# 测试集
+test_datasets:
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small.json"
+  target_domains: ["IMDL", "Doc", "deepfake", "AIGC"]
+
+# ==================== 训练参数 ====================
+training:
+  epochs: 30
+  batch_size: 16
+  gradient_accumulation_steps: 1
+  
+  # 特征增强
+  use_feature_augment: true
+  flip_prob: 0.5
+  rotate_prob: 0.3
+  channel_drop_prob: 0.2
+  noise_prob: 0.3
+  noise_std: 0.05
+
+  warmup_epochs: 3
+  grad_clip: 1.0
+
+  # 优化器
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-4
+    weight_decay: 1.0e-4
+    betas: [0.9, 0.999]
+  
+  # 学习率调度器
+  scheduler:
+    name: "CosineAnnealingLR"
+    T_max: 30
+    eta_min: 1.0e-6
+  
+  # 损失函数权重
+  loss_weights:
+    cls_loss: 1.0
+    sparse_loss: 0.1
+  
+  # 早停
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 0.001
+
+# ==================== 自适应课程学习配置 ====================
+curriculum:
+  enabled: true
+  manager_type: "adaptive"
+  
+  # 数据比例控制
+  start_ratio: 0.3
+  end_ratio: 1.0
+  warmup_epochs: 3
+  
+  # 自适应专用配置
+  adaptive:
+    # 数据比例更新
+    ratio_update_frequency: 2
+    
+    # 置信度更新
+    confidence_update_frequency: 1
+    initial_weight: 0.6
+    loss_weight: 0.4
+    confidence_momentum: 0.9
+    loss_normalization: 'percentile'
+    use_kl_regularization: true
+    kl_weight: 0.1
+    
+    # 采样策略
+    confidence_weight_schedule: 'linear'
+    initial_confidence_weight: 0.0
+    final_confidence_weight: 0.7
+
+# ==================== 测试参数 ====================
+testing:
+  batch_size: 64
+  save_predictions: false
+  save_heatmaps: false
+
+# ==================== 评估指标 ====================
+evaluators:
+  - name: "Accuracy"
+  - name: "AUC"
+  - name: "F1"
+    init_config:
+      threshold: 0.5
+  - name: "Precision"
+  - name: "Recall"
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+  deterministic: false
+
+# 分布式训练参数
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"
+
+# ==================== 日志配置 ====================
+logging:
+  print_freq: 10
+  save_freq: 5
+  tensorboard: true
+  wandb: false
+  wandb_project: "forensic-detection"

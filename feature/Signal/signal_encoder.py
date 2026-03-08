@@ -1,85 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from PIL import Image
-
-# 导入信号自然性特征提取器
-from .Local_Spectral import extract_spectral_feature
-from .Laplacian import extract_resampling_feature
-from .JPEG import extract_jpeg_feature
-
-
-class SignalFeatureExtractor(nn.Module):
-    """
-    信号自然性特征提取器
-    整合三个维度的数字信号处理痕迹
-    
-    输入: RGB 图像 [B, 3, H, W] (已归一化)
-    输出: 拼接特征 [B, 3, H, W]
-        - 通道0: 局部频谱异常 M_spec
-        - 通道1: 重采样伪影 M_resamp
-        - 通道2: JPEG 压缩不一致 M_jpeg
-    """
-    def __init__(self):
-        super().__init__()
-        
-    def forward(self, x):
-        """
-        Args:
-            x: [B, 3, H, W] torch.Tensor, 归一化后的 RGB 图像
-        
-        Returns:
-            features: [B, 3, H, W] torch.Tensor
-        """
-        B, C, H, W = x.shape
-        device = x.device
-        
-        batch_features = []
-        
-        for i in range(B):
-            # 1. 反归一化到 [0, 1]
-            img_tensor = x[i]  # [3, H, W]
-            mean = torch.tensor([0.485, 0.456, 0.406], device=device).view(3, 1, 1)
-            std = torch.tensor([0.229, 0.224, 0.225], device=device).view(3, 1, 1)
-            img_tensor = img_tensor * std + mean
-            img_tensor = torch.clamp(img_tensor, 0, 1)
-            
-            # 2. 转为 numpy 格式 (H, W, 3), uint8
-            img_np = img_tensor.permute(1, 2, 0).cpu().numpy()
-            img_np = (img_np * 255).astype(np.uint8)
-            
-            # 3. 提取三个特征 (每个都是 (H, W) float32, [0,1])
-            M_spec = extract_spectral_feature(img_np)
-            
-            M_resamp = extract_resampling_feature(img_np)
-            
-            M_jpeg = extract_jpeg_feature(img_np)
-            
-            # 4. 归一化到 [0, 1] (如果特征提取器未归一化)
-            M_spec = self._normalize(M_spec)
-            M_resamp = self._normalize(M_resamp)
-            M_jpeg = self._normalize(M_jpeg)
-            
-            # 5. 堆叠为 (3, H, W)
-            combined = np.stack([M_spec, M_resamp, M_jpeg], axis=0)
-            
-            # 6. 转为 Tensor
-            combined_tensor = torch.from_numpy(combined).float()
-            batch_features.append(combined_tensor)
-        
-        # 7. 堆叠批次
-        features = torch.stack(batch_features, dim=0).to(device)  # [B, 3, H, W]
-        
-        return features
-    
-    def _normalize(self, feat):
-        """归一化特征到 [0, 1]"""
-        feat_min = feat.min()
-        feat_max = feat.max()
-        if feat_max - feat_min < 1e-8:
-            return np.zeros_like(feat, dtype=np.float32)
-        return ((feat - feat_min) / (feat_max - feat_min)).astype(np.float32)
 
 
 class MultiScaleCNN(nn.Module):
@@ -91,9 +12,8 @@ class MultiScaleCNN(nn.Module):
         - 有效感受野: 7×7, 9×9, 19×19
         - 拼接后通过 1×1 卷积融合
     """
-    def __init__(self, in_channels=3, base_channels=32, use_bn=True, output_sigmoid=False):
+    def __init__(self, in_channels=3, base_channels=32, use_bn=True):
         super().__init__()
-        self.output_sigmoid = output_sigmoid
         
         # Branch 1: 3×3 @ dilation=3 → 有效感受野 = 7×7
         padding1 = (3 - 1) * 3 // 2  # = 3
@@ -133,7 +53,7 @@ class MultiScaleCNN(nn.Module):
     def forward(self, x):
         """
         Args:
-            x: [B, 3, H, W]
+            x: [B, in_channels, H, W]
         
         Returns:
             out: [B, base_channels, H, W]
@@ -150,61 +70,69 @@ class MultiScaleCNN(nn.Module):
 
 class SignalEncoder(nn.Module):
     """
-    信号自然性分支编码器（Signal Naturalness Encoder）
+    信号自然性分支编码器（Signal Naturalness Encoder）—— 预提取特征版本
     
     完整流程:
-        输入RGB图像 → 特征提取器(3通道) → 多尺度CNN → 输出特征
+        预提取信号特征 → 多尺度CNN → 输出特征
     
     输入: 
-        x ∈ ℝ^(B × 3 × H × W) —— 原始 RGB 图像 (已归一化)
+        signal_feat ∈ ℝ^(B × 3 × H × W) —— 预提取的信号特征
+            - 通道0: 局部频谱异常 (spectral)
+            - 通道1: 重采样伪影 (resampling)
+            - 通道2: JPEG 压缩不一致 (jpeg)
     
     输出:
-        A₃ ∈ ℝ^(B × 64 × H × W) —— 保留空间分辨率，用于后续门控融合
+        A₃ ∈ ℝ^(B × out_channels × H × W) —— 信号自然性特征
     
-    设计依据:
-        - 特征提取: 3维数字信号痕迹 (频谱/重采样/JPEG)
-        - 多尺度CNN: 3个并行分支，不同感受野
-        - 无下采样: 保持空间分辨率
-        - 通道数: 3 → 32×3 → 64
+    关键改动:
+        ✅ 移除 SignalFeatureExtractor（特征已预提取）
+        ✅ 直接接收 3 通道特征作为输入
+        ✅ 保持多尺度 CNN 架构不变
     """
-    def __init__(self, out_channels=64, base_channels=32, use_bn=True):
+    def __init__(self, in_channels=3, out_channels=64, base_channels=32, use_bn=True):
+        """
+        Args:
+            in_channels: 输入特征通道数（信号特征固定为3）
+            out_channels: 输出通道数（默认64）
+            base_channels: 中间层通道数（默认32）
+            use_bn: 是否使用 BatchNorm
+        """
         super().__init__()
         
-        # 特征提取器
-        self.feature_extractor = SignalFeatureExtractor()
+        # === 移除了 SignalFeatureExtractor ===
         
         # 多尺度 CNN 编码器
         self.multi_scale_cnn = MultiScaleCNN(
-            in_channels=3,
+            in_channels=in_channels,
             base_channels=base_channels,
             use_bn=use_bn
         )
         
-        # 最终投影层 (可选，用于统一通道数)
+        # 最终投影层（统一通道数）
         self.proj = nn.Sequential(
             nn.Conv2d(base_channels, out_channels, kernel_size=1),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(out_channels) if use_bn else nn.Identity()
         )
 
-    def forward(self, x):
+    def forward(self, signal_feat):
         """
         完整前向传播
         
         Args:
-            x: [B, 3, H, W] torch.Tensor —— 原始 RGB 图像（已归一化）
+            signal_feat: [B, 3, H, W] torch.Tensor —— 预提取的信号特征
         
         Returns:
-            out: [B, 64, H, W] torch.Tensor —— 信号自然性特征
+            out: [B, out_channels, H, W] torch.Tensor —— 信号自然性特征
         """
-        # Step 1: 特征提取 (RGB → 3通道信号特征)
-        features = self.feature_extractor(x)  # [B, 3, H, W]
+        # Step 1: 直接使用预提取特征（无需再提取）
+        # features = signal_feat  # [B, 3, H, W]
         
         # Step 2: 多尺度 CNN 编码
-        encoded = self.multi_scale_cnn(features)  # [B, 32, H, W]
+        encoded = self.multi_scale_cnn(signal_feat)  # [B, 32, H, W]
         
         # Step 3: 投影到目标通道数
-        out = self.proj(encoded)  # [B, 64, H, W]
+        out = self.proj(encoded)  # [B, out_channels, H, W]
         
         return out
 
@@ -217,31 +145,31 @@ class SignalEncoder(nn.Module):
 # # ==================== 测试代码 ====================
 # if __name__ == "__main__":
 #     print("="*60)
-#     print("测试信号自然性编码器")
+#     print("测试信号自然性编码器（预提取特征版本）")
 #     print("="*60)
     
 #     device = "cuda" if torch.cuda.is_available() else "cpu"
 #     print(f"使用设备: {device}\n")
     
 #     # 1. 创建模型
-#     model = SignalEncoder(out_channels=64, base_channels=32, use_bn=True).to(device)
+#     model = SignalEncoder(in_channels=3, out_channels=64, base_channels=32, use_bn=True).to(device)
 #     print(f"✓ 模型参数量: {model.num_params:,}")
     
-#     # 2. 创建测试输入 (模拟已归一化的 RGB 图像)
+#     # 2. 创建测试输入（模拟预提取的信号特征）
 #     batch_size = 2
 #     H, W = 512, 512
-#     dummy_input = torch.randn(batch_size, 3, H, W).to(device)
+#     signal_feat = torch.randn(batch_size, 3, H, W).to(device)
     
-#     print(f"\n输入张量:")
-#     print(f"  - Shape: {dummy_input.shape}")
-#     print(f"  - Range: [{dummy_input.min():.3f}, {dummy_input.max():.3f}]")
+#     print(f"\n输入特征:")
+#     print(f"  - Shape: {signal_feat.shape}")
+#     print(f"  - Range: [{signal_feat.min():.3f}, {signal_feat.max():.3f}]")
     
 #     # 3. 前向传播
 #     print("\n开始前向传播...")
 #     with torch.no_grad():
-#         output = model(dummy_input)
+#         output = model(signal_feat)
     
-#     print(f"\n输出张量:")
+#     print(f"\n输出特征:")
 #     print(f"  - Shape: {output.shape}")
 #     print(f"  - Range: [{output.min():.3f}, {output.max():.3f}]")
     

@@ -32,12 +32,30 @@ def apply_high_order_differences(image_tensor):
 
     return [res_h, res_v]
 
-def extract_resampling_feature(residual_maps, shifts=None):
+def extract_resampling_feature(image_np, shifts=None):
     """
-    Compute shifted correlation maps. All outputs are same size as input residuals.
+    Compute resampling artifact detection confidence map
+    
+    输入: (H, W, 3) uint8 RGB numpy array
+    输出: (H, W) float32 numpy array
     """
+    
+    if isinstance(image_np, np.ndarray):
+        # 转灰度
+        if image_np.ndim == 3:
+            gray = np.dot(image_np[..., :3], [0.299, 0.587, 0.114])
+        else:
+            gray = image_np.astype(np.float32)
+        # 转 tensor
+        image_tensor = torch.from_numpy(gray).float().unsqueeze(0)  # (1, H, W)
+    else:
+        image_tensor = image_np
+    
     if shifts is None:
-        shifts = [(2, 0), (0, 2), (3, 0), (0, 3)]  # support bilinear & bicubic
+        shifts = [(2, 0), (0, 2), (3, 0), (0, 3)]
+    
+    # 内部调用 apply_high_order_differences
+    residual_maps = apply_high_order_differences(image_tensor)
 
     responses = []
     for res in residual_maps:
@@ -64,11 +82,11 @@ def extract_resampling_feature(residual_maps, shifts=None):
     stacked = torch.stack(responses, dim=0)  # (N, H, W)
     confidence_map = torch.max(stacked, dim=0)[0]  # (H, W)
 
-    # Step 3: Apply normalization to ensure values are in [0, 1]
-    confidence_map_normalized = normalize_to_01(confidence_map.cpu().numpy())
+    # 归一化并返回 numpy
+    conf_np = confidence_map.cpu().numpy()
+    conf_np = (conf_np - conf_np.min()) / (conf_np.max() - conf_np.min() + 1e-8)
     
-    return confidence_map_normalized
-
+    return conf_np.astype(np.float32)  #  返回 (H, W)
 # # ======================
 # # Main
 # # ======================

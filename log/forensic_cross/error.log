@@ -1,8 +1,47 @@
-W0226 18:54:59.475000 3280114 site-packages/torch/distributed/run.py:803] 
-W0226 18:54:59.475000 3280114 site-packages/torch/distributed/run.py:803] *****************************************
-W0226 18:54:59.475000 3280114 site-packages/torch/distributed/run.py:803] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
-W0226 18:54:59.475000 3280114 site-packages/torch/distributed/run.py:803] *****************************************
-/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/timm/models/layers/__init__.py:48: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
-  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
-/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/timm/models/layers/__init__.py:48: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
-  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+W0302 19:55:35.925000 2401881 site-packages/torch/distributed/run.py:803] 
+W0302 19:55:35.925000 2401881 site-packages/torch/distributed/run.py:803] *****************************************
+W0302 19:55:35.925000 2401881 site-packages/torch/distributed/run.py:803] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0302 19:55:35.925000 2401881 site-packages/torch/distributed/run.py:803] *****************************************
+Traceback (most recent call last):
+  File "/mnt/data3/zhiyu/ForensicArtifacts/train.py", line 21, in <module>
+    from curriculum.static_curriculum_manager import StaticCurriculumManager
+ModuleNotFoundError: No module named 'curriculum.static_curriculum_manager'
+Traceback (most recent call last):
+  File "/mnt/data3/zhiyu/ForensicArtifacts/train.py", line 21, in <module>
+    from curriculum.static_curriculum_manager import StaticCurriculumManager
+ModuleNotFoundError: No module named 'curriculum.static_curriculum_manager'
+E0302 19:55:38.371000 2401881 site-packages/torch/distributed/elastic/multiprocessing/api.py:882] failed (exitcode: 1) local_rank: 0 (pid: 2402009) of binary: /home/zhiyu/miniconda3/envs/py310/bin/python3.10
+Traceback (most recent call last):
+  File "/home/zhiyu/miniconda3/envs/py310/bin/torchrun", line 7, in <module>
+    sys.exit(main())
+  File "/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 357, in wrapper
+    return f(*args, **kwargs)
+  File "/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/torch/distributed/run.py", line 936, in main
+    run(args)
+  File "/hW0303 06:55:36.583000 2236784 site-packages/torch/distributed/elastic/agent/server/api.py:725] Received Signals.SIGHUP death signal, shutting down workers
+W0303 06:55:36.584000 2236784 site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 2236911 closing signal SIGHUP
+W0303 06:55:36.584000 2236784 site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 2236912 closing signal SIGHUP
+W0303 06:55:36.584000 2236784 site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 2236913 closing signal SIGHUP
+W0303 06:55:36.585000 2236784 site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 2236914 closing signal SIGHUP
+Traceback (most recent call last):
+  File "/home/zhiyu/miniconda3/envs/py310/bin/torchrun", line 7, in <module>
+    sys.exit(main())
+  File "/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 357, in wrapper
+    return f(*args, **kwargs)
+  File "/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/torch/distributed/run.py", line 936, in main
+    run(args)
+  File "/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/torch/distributed/run.py", line 927, in run
+    elastic_launch(
+  File "/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 156, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 284, in launch_agent
+    result = agent.run()
+  File "/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/torch/distributed/elastic/metrics/api.py", line 138, in wrapper
+    result = f(*args, **kwargs)
+  File "/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/torch/distributed/elastic/agent/server/api.py", line 717, in run
+    result = self._invoke_run(role)
+  File "/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/torch/distributed/elastic/agent/server/api.py", line 881, in _invoke_run
+    time.sleep(monitor_interval)
+  File "/home/zhiyu/miniconda3/envs/py310/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/api.py", line 85, in _terminate_process_handler
+    raise SignalException(f"Process {os.getpid()} got signal: {sigval}", sigval=sigval)
+torch.distributed.elastic.multiprocessing.api.SignalException: Process 2236784 got signal: 1

@@ -1,0 +1,155 @@
+# config/train_config_with_curriculum.yaml
+
+# ==================== 运行控制 ====================
+gpus: "4,5"
+flag: train
+
+# 日志和检查点
+log_dir: "./log/forensic_cross/reverse_curriculum"  # ✅ 修改：反向课程学习日志路径
+checkpoint_path: null
+save_dir: "./checkpoints/forensic_cross/reverse_curriculum"  # ✅ 修改：反向课程学习保存路径
+resume: false
+
+# ==================== 模型配置 ====================
+model:
+  scene_in_channels: 4
+  signal_in_channels: 3
+  imaging_in_channels: 32
+  
+  scene_channels: 64
+  imaging_channels: 64
+  signal_channels: 64
+  
+  fusion_channels: 64
+  reduction: 4
+  
+  hidden_dim: 256
+  dropout: 0.1
+
+# ==================== 数据配置 ====================
+data:
+  strict_mode: false
+
+# 训练集
+train_dataset:
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/train_medium_with_features.json"
+  target_domains: null
+  target_mani_types: null
+
+# 验证集
+val_dataset:
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/val_medium_with_features.json"
+  target_domains: null
+  target_mani_types: null
+
+# 测试集
+test_datasets:
+  path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small.json"
+  target_domains: ["IMDL", "Doc", "deepfake", "AIGC"]
+
+# ==================== 训练参数 ====================
+training:
+  epochs: 30                    # 总训练epoch数
+  batch_size: 16               
+  gradient_accumulation_steps: 1
+  
+  # 特征增强
+  use_feature_augment: true
+  flip_prob: 0.5
+  rotate_prob: 0.3
+  channel_drop_prob: 0.2
+  noise_prob: 0.3
+  noise_std: 0.05
+
+  warmup_epochs: 3              # 学习率预热
+  grad_clip: 1.0
+
+  # 优化器
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-4
+    weight_decay: 1.0e-4
+    betas: [0.9, 0.999]
+  
+  # 学习率调度器
+  scheduler:
+    name: "CosineAnnealingLR"
+    T_max: 30
+    eta_min: 1.0e-6
+  
+  # 损失函数权重
+  loss_weights:
+    cls_loss: 1.0
+    sparse_loss: 0.1
+  
+  # 早停
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 0.001
+
+# ==================== 🆕 反向课程学习配置 ====================
+curriculum:
+  # ✅ 课程学习总开关
+  enabled: true
+  
+  # ✅ 管理器类型：反向课程学习（从难到易）
+  manager_type: "reverse"
+  
+  # ✅ 调度策略：建议使用 linear 或 cosine
+  # - linear: 线性增长，稳定可控
+  # - cosine: 余弦增长，平滑过渡
+  # - root: 前期快速增加简单样本，后期缓慢
+  schedule_type: "linear"
+  
+  # ✅ 数据比例控制
+  start_ratio: 0.3              # 初始使用30%的最困难样本
+  end_ratio: 1.0                # 最终使用100%的数据
+  
+  # ✅ 课程周期配置
+  total_epochs: 20              # 课程学习持续20个epoch
+  warmup_epochs: 3              # 前3个epoch保持30%困难样本不变（预热期）
+  
+  # ==================== 反向管理器专用配置（未使用，保留以备后续扩展）====================
+  reverse:
+    hard_sample_ratio: 0.3      # 初始困难样本比例（已由start_ratio控制）
+    transition_epoch: 10        # 过渡期（已由total_epochs和warmup_epochs控制）
+
+# ==================== 测试参数 ====================
+testing:
+  batch_size: 64
+  save_predictions: false
+  save_heatmaps: false
+
+# ==================== 评估指标 ====================
+evaluators:
+  - name: "Accuracy"
+  - name: "AUC"
+  - name: "F1"
+    init_config:
+      threshold: 0.5
+  - name: "Precision"
+  - name: "Recall"
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+  deterministic: false
+
+# 分布式训练参数
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"
+
+# ==================== 日志配置 ====================
+logging:
+  print_freq: 10
+  save_freq: 5
+  tensorboard: true
+  wandb: false
+  wandb_project: "forensic-detection"

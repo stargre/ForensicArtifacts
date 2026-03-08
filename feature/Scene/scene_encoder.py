@@ -2,77 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
-import numpy as np
-from PIL import Image
-
-# 导入场景一致性特征提取器
-from .Semantic_Illusion import extract_semantic_feature
-from .Geo_consistency import extract_geometric_feature
-from .Lighting_shadow_anomaly import extract_lighting_feature
-from .Layout import extract_layout_feature
-
-
-class SceneFeatureExtractor(nn.Module):
-    """
-    场景一致性特征提取器
-    整合四个维度的高层语义伪影检测
-    
-    输入: RGB 图像 [B, 3, H, W] (已归一化)
-    输出: 拼接特征 [B, 4, H, W]
-        - 通道0: 语义对齐异常 M_align
-        - 通道1: 几何一致性 M_depth
-        - 通道2: 光照阴影矛盾 M_light
-        - 通道3: 布局语义异常 M_layout
-    """
-    def __init__(self):
-        super().__init__()
-        
-    def forward(self, x):
-        """
-        Args:
-            x: [B, 3, H, W] torch.Tensor, 归一化后的 RGB 图像
-        
-        Returns:
-            features: [B, 4, H, W] torch.Tensor
-        """
-        B, C, H, W = x.shape
-        device = x.device
-        
-        batch_features = []
-        
-        for i in range(B):
-            # 1. 反归一化到 [0, 1]
-            img_tensor = x[i]  # [3, H, W]
-            mean = torch.tensor([0.485, 0.456, 0.406], device=device).view(3, 1, 1)
-            std = torch.tensor([0.229, 0.224, 0.225], device=device).view(3, 1, 1)
-            img_tensor = img_tensor * std + mean
-            img_tensor = torch.clamp(img_tensor, 0, 1)
-            
-            # 2. 转为 numpy 格式 (H, W, 3), uint8
-            img_np = img_tensor.permute(1, 2, 0).cpu().numpy()
-            img_np = (img_np * 255).astype(np.uint8)
-            
-            # 3. 提取四个特征 (每个都是 (H, W) float32)
-            M_align = extract_semantic_feature(img_np)
-       
-            M_depth = extract_geometric_feature(img_np)
-
-            M_light = extract_lighting_feature(img_np)
-            
-            M_layout = extract_layout_feature(img_np)
-            
-            
-            # 4. 堆叠为 (4, H, W)
-            combined = np.stack([M_align, M_depth, M_light, M_layout], axis=0)
-            
-            # 5. 转为 Tensor
-            combined_tensor = torch.from_numpy(combined).float()
-            batch_features.append(combined_tensor)
-        
-        # 6. 堆叠批次
-        features = torch.stack(batch_features, dim=0).to(device)  # [B, 4, H, W]
-        
-        return features
 
 
 class PatchEmbed(nn.Module):
@@ -89,7 +18,7 @@ class PatchEmbed(nn.Module):
     def forward(self, x):
         """
         Args:
-            x: [B, 4, H, W]
+            x: [B, in_chans, H, W]
         Returns:
             [B, num_patches, embed_dim]
         """
@@ -250,34 +179,42 @@ def attention_rollout(attn_weights_list):
 
 class SceneEncoder(nn.Module):
     """
-    场景一致性分支编码器（Scene Consistency Encoder）
+    场景一致性分支编码器（Scene Consistency Encoder）—— 预提取特征版本
     
     完整流程:
-        输入RGB图像 → 特征提取器(4通道) → ViT-Tiny → Attention Rollout → 上采样
+        预提取场景特征 → ViT-Tiny → Attention Rollout → 上采样 → 通道扩展
     
     输入: 
-        x ∈ ℝ^(B × 3 × H × W) —— 原始 RGB 图像 (已归一化)
+        scene_feat ∈ ℝ^(B × 4 × H × W) —— 预提取的场景特征
+            - 通道0: 语义对齐异常 (semantic)
+            - 通道1: 几何一致性 (depth)
+            - 通道2: 光照阴影矛盾 (lighting)
+            - 通道3: 布局语义异常 (layout)
     
     输出:
-        A₁ ∈ ℝ^(B × 1 × H × W) —— 场景一致性异常热力图
+        A₁ ∈ ℝ^(B × out_channels × H × W) —— 场景一致性特征
     
-    设计依据:
-        - 特征提取: 4维高层语义特征 (语义/几何/光照/布局)
-        - ViT-Tiny: 4层, 192维, 3头注意力
-        - Attention Rollout: 聚合跨层注意力
-        - 双线性插值上采样至原始分辨率
+    关键改动:
+        ✅ 移除 SceneFeatureExtractor（特征已预提取）
+        ✅ 直接接收 4 通道特征作为输入
+        ✅ 保持 ViT-Tiny 和 Attention Rollout 流程不变
     """
-    def __init__(self, img_size=512, out_channels=64):
+    def __init__(self, in_channels=4, img_size=512, out_channels=64):
+        """
+        Args:
+            in_channels: 输入特征通道数（场景特征固定为4）
+            img_size: 特征图尺寸（默认512）
+            out_channels: 输出通道数（默认64）
+        """
         super().__init__()
         
-        # 特征提取器
-        self.feature_extractor = SceneFeatureExtractor()
+        # === 移除了 SceneFeatureExtractor ===
         
         # ViT-Tiny 编码器
         self.encoder = ViTTinyEncoder(
             img_size=img_size,
             patch_size=16,
-            in_chans=4,  # 4个场景特征通道
+            in_chans=in_channels,  # 直接使用输入通道数
             embed_dim=192,
             depth=4,
             num_heads=3
@@ -288,25 +225,26 @@ class SceneEncoder(nn.Module):
         self.num_patches_per_side = img_size // 16  # 512/16 = 32
         self.out_channels = out_channels
 
+        # 通道扩展层（1 → out_channels）
         self.channel_expand = nn.Conv2d(1, out_channels, kernel_size=1)
 
-    def forward(self, x):
+    def forward(self, scene_feat):
         """
         完整前向传播
         
         Args:
-            x: [B, 3, H, W] torch.Tensor —— 原始 RGB 图像（已归一化）
+            scene_feat: [B, 4, H, W] torch.Tensor —— 预提取的场景特征
         
         Returns:
-            anomaly_map: [B, 1, H, W] torch.Tensor —— 场景一致性异常热力图
+            out: [B, out_channels, H, W] torch.Tensor —— 场景一致性特征
         """
-        B = x.shape[0]
+        B = scene_feat.shape[0]
         
-        # Step 1: 特征提取 (RGB → 4通道场景特征)
-        features = self.feature_extractor(x)  # [B, 4, H, W]
+        # Step 1: 直接使用预提取特征（无需再提取）
+        # features = scene_feat  # [B, 4, H, W]
         
         # Step 2: ViT 编码
-        _, attn_list = self.encoder(features)  # attn_list: List of [B, heads, N, N]
+        _, attn_list = self.encoder(scene_feat)  # attn_list: List of [B, heads, N, N]
         
         # Step 3: Attention Rollout
         rollout_scores = attention_rollout(attn_list)  # [B, num_patches]
@@ -324,10 +262,10 @@ class SceneEncoder(nn.Module):
             align_corners=False
         )  # [B, 1, 512, 512]
 
-        # Step 6: 扩展到64通道
-        anomaly_map = self.channel_expand(anomaly_map)  # [B, 64, 512, 512]
+        # Step 6: 扩展到目标通道数
+        out = self.channel_expand(anomaly_map)  # [B, out_channels, 512, 512]
         
-        return anomaly_map
+        return out
 
     @property
     def num_params(self):
@@ -338,35 +276,35 @@ class SceneEncoder(nn.Module):
 # # ==================== 测试代码 ====================
 # if __name__ == "__main__":
 #     print("="*60)
-#     print("测试场景一致性编码器")
+#     print("测试场景一致性编码器（预提取特征版本）")
 #     print("="*60)
     
 #     device = "cuda" if torch.cuda.is_available() else "cpu"
 #     print(f"使用设备: {device}\n")
     
 #     # 1. 创建模型
-#     model = SceneEncoder(img_size=512, out_channels=1).to(device)
+#     model = SceneEncoder(in_channels=4, img_size=512, out_channels=64).to(device)
 #     print(f"✓ 模型参数量: {model.num_params:,}")
     
-#     # 2. 创建测试输入 (模拟已归一化的 RGB 图像)
+#     # 2. 创建测试输入（模拟预提取的场景特征）
 #     batch_size = 2
-#     dummy_input = torch.randn(batch_size, 3, 512, 512).to(device)
+#     scene_feat = torch.randn(batch_size, 4, 512, 512).to(device)
     
-#     print(f"\n输入张量:")
-#     print(f"  - Shape: {dummy_input.shape}")
-#     print(f"  - Range: [{dummy_input.min():.3f}, {dummy_input.max():.3f}]")
+#     print(f"\n输入特征:")
+#     print(f"  - Shape: {scene_feat.shape}")
+#     print(f"  - Range: [{scene_feat.min():.3f}, {scene_feat.max():.3f}]")
     
 #     # 3. 前向传播
 #     print("\n开始前向传播...")
 #     with torch.no_grad():
-#         output = model(dummy_input)
+#         output = model(scene_feat)
     
-#     print(f"\n输出张量:")
+#     print(f"\n输出特征:")
 #     print(f"  - Shape: {output.shape}")
 #     print(f"  - Range: [{output.min():.3f}, {output.max():.3f}]")
     
 #     # 4. 验证形状
-#     expected_shape = (batch_size, 1, 512, 512)
+#     expected_shape = (batch_size, 64, 512, 512)
 #     assert output.shape == expected_shape, \
 #         f"输出形状错误! 期望 {expected_shape}, 得到 {output.shape}"
     

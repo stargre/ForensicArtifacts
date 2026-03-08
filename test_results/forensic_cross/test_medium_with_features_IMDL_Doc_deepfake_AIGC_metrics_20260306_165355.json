@@ -1,0 +1,188 @@
+{
+  "timestamp": "20260306_165355",
+  "dataset": "test_medium_with_features_IMDL_Doc_deepfake_AIGC",
+  "global_metrics": {
+    "accuracy": 0.59,
+    "auc": 0.7510429703796412,
+    "f1": 0.6554621848739496,
+    "precision": 0.9176470588235294,
+    "recall": 0.5098039215686274,
+    "confusion_matrix": [
+      [
+        80,
+        14
+      ],
+      [
+        150,
+        156
+      ]
+    ],
+    "total_samples": 400
+  },
+  "domain_metrics": {
+    "deepfake": {
+      "accuracy": 0.5227272727272727,
+      "auc": 0.5873015873015873,
+      "f1": 0.6379310344827587,
+      "precision": 0.8043478260869565,
+      "recall": 0.5285714285714286,
+      "total_samples": 88,
+      "correct_samples": 46
+    },
+    "IMDL": {
+      "accuracy": 0.6055045871559633,
+      "auc": 0.7465245597775718,
+      "f1": 0.6614173228346457,
+      "precision": 0.9545454545454546,
+      "recall": 0.5060240963855421,
+      "total_samples": 109,
+      "correct_samples": 66
+    },
+    "AIGC": {
+      "accuracy": 0.7722772277227723,
+      "auc": 0.8989473684210527,
+      "f1": 0.8270676691729323,
+      "precision": 0.9649122807017544,
+      "recall": 0.7236842105263158,
+      "total_samples": 101,
+      "correct_samples": 78
+    },
+    "Doc": {
+      "accuracy": 0.45098039215686275,
+      "auc": 0.7096103896103897,
+      "f1": 0.44,
+      "precision": 0.9565217391304348,
+      "recall": 0.2857142857142857,
+      "total_samples": 102,
+      "correct_samples": 46
+    }
+  },
+  "mani_type_metrics": {
+    "FaceEditing": {
+      "accuracy": 0.45,
+      "auc": 0.0,
+      "f1": 0.6206896551724138,
+      "precision": 1.0,
+      "recall": 0.45,
+      "total_samples": 20,
+      "correct_samples": 9
+    },
+    "Generative": {
+      "accuracy": 0.6097560975609756,
+      "auc": 0.0,
+      "f1": 0.7575757575757576,
+      "precision": 1.0,
+      "recall": 0.6097560975609756,
+      "total_samples": 41,
+      "correct_samples": 25
+    },
+    "Non-Generative": {
+      "accuracy": 0.40476190476190477,
+      "auc": 0.0,
+      "f1": 0.576271186440678,
+      "precision": 1.0,
+      "recall": 0.40476190476190477,
+      "total_samples": 42,
+      "correct_samples": 17
+    },
+    "Pixel Diffusion": {
+      "accuracy": 0.8461538461538461,
+      "auc": 0.0,
+      "f1": 0.9166666666666666,
+      "precision": 1.0,
+      "recall": 0.8461538461538461,
+      "total_samples": 13,
+      "correct_samples": 11
+    },
+    "FaceReenactment": {
+      "accuracy": 0.5454545454545454,
+      "auc": 0.0,
+      "f1": 0.7058823529411765,
+      "precision": 1.0,
+      "recall": 0.5454545454545454,
+      "total_samples": 22,
+      "correct_samples": 12
+    },
+    "non-AIGC": {
+      "accuracy": 0.4,
+      "auc": 0.0,
+      "f1": 0.5714285714285714,
+      "precision": 1.0,
+      "recall": 0.4,
+      "total_samples": 40,
+      "correct_samples": 16
+    },
+    "FaceSwap": {
+      "accuracy": 0.3333333333333333,
+      "auc": 0.0,
+      "f1": 0.5,
+      "precision": 1.0,
+      "recall": 0.3333333333333333,
+      "total_samples": 12,
+      "correct_samples": 4
+    },
+    "Gan": {
+      "accuracy": 0.6923076923076923,
+      "auc": 0.0,
+      "f1": 0.8181818181818182,
+      "precision": 1.0,
+      "recall": 0.6923076923076923,
+      "total_samples": 13,
+      "correct_samples": 9
+    },
+    "Latent Diffusion": {
+      "accuracy": 0.7,
+      "auc": 0.0,
+      "f1": 0.8235294117647058,
+      "precision": 1.0,
+      "recall": 0.7,
+      "total_samples": 10,
+      "correct_samples": 7
+    },
+    "EntireFaceSynthesis": {
+      "accuracy": 0.75,
+      "auc": 0.0,
+      "f1": 0.8571428571428571,
+      "precision": 1.0,
+      "recall": 0.75,
+      "total_samples": 16,
+      "correct_samples": 12
+    },
+    "AIGC": {
+      "accuracy": 0.16216216216216217,
+      "auc": 0.0,
+      "f1": 0.27906976744186046,
+      "precision": 1.0,
+      "recall": 0.16216216216216217,
+      "total_samples": 37,
+      "correct_samples": 6
+    },
+    "Commercial": {
+      "accuracy": 0.6153846153846154,
+      "auc": 0.0,
+      "f1": 0.7619047619047619,
+      "precision": 1.0,
+      "recall": 0.6153846153846154,
+      "total_samples": 13,
+      "correct_samples": 8
+    },
+    "Other": {
+      "accuracy": 0.4,
+      "auc": 0.0,
+      "f1": 0.5714285714285714,
+      "precision": 1.0,
+      "recall": 0.4,
+      "total_samples": 10,
+      "correct_samples": 4
+    },
+    "Autoregressive Model": {
+      "accuracy": 0.9411764705882353,
+      "auc": 0.0,
+      "f1": 0.9696969696969697,
+      "precision": 1.0,
+      "recall": 0.9411764705882353,
+      "total_samples": 17,
+      "correct_samples": 16
+    }
+  }
+}

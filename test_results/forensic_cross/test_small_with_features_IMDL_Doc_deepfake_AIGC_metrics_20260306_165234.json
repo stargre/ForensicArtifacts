@@ -1,0 +1,179 @@
+{
+  "timestamp": "20260306_165234",
+  "dataset": "test_small_with_features_IMDL_Doc_deepfake_AIGC",
+  "global_metrics": {
+    "accuracy": 0.67,
+    "auc": 0.7636000000000001,
+    "f1": 0.6162790697674418,
+    "precision": 0.7361111111111112,
+    "recall": 0.53,
+    "confusion_matrix": [
+      [
+        81,
+        19
+      ],
+      [
+        47,
+        53
+      ]
+    ],
+    "total_samples": 200
+  },
+  "domain_metrics": {
+    "AIGC": {
+      "accuracy": 0.864406779661017,
+      "auc": 0.9264367816091955,
+      "f1": 0.8666666666666667,
+      "precision": 0.8666666666666667,
+      "recall": 0.8666666666666667,
+      "total_samples": 59,
+      "correct_samples": 51
+    },
+    "Doc": {
+      "accuracy": 0.6792452830188679,
+      "auc": 0.7891737891737892,
+      "f1": 0.5641025641025641,
+      "precision": 0.8461538461538461,
+      "recall": 0.4230769230769231,
+      "total_samples": 53,
+      "correct_samples": 36
+    },
+    "IMDL": {
+      "accuracy": 0.5111111111111111,
+      "auc": 0.6805555555555556,
+      "f1": 0.3888888888888889,
+      "precision": 0.5833333333333334,
+      "recall": 0.2916666666666667,
+      "total_samples": 45,
+      "correct_samples": 23
+    },
+    "deepfake": {
+      "accuracy": 0.5581395348837209,
+      "auc": 0.5782608695652175,
+      "f1": 0.4864864864864865,
+      "precision": 0.5294117647058824,
+      "recall": 0.45,
+      "total_samples": 43,
+      "correct_samples": 24
+    }
+  },
+  "mani_type_metrics": {
+    "Commercial": {
+      "accuracy": 0.7142857142857143,
+      "auc": 0.0,
+      "f1": 0.8333333333333334,
+      "precision": 1.0,
+      "recall": 0.7142857142857143,
+      "total_samples": 7,
+      "correct_samples": 5
+    },
+    "non-AIGC": {
+      "accuracy": 0.44,
+      "auc": 0.0,
+      "f1": 0.6111111111111112,
+      "precision": 1.0,
+      "recall": 0.44,
+      "total_samples": 25,
+      "correct_samples": 11
+    },
+    "Other": {
+      "accuracy": 1.0,
+      "auc": 0.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "total_samples": 7,
+      "correct_samples": 7
+    },
+    "EntireFaceSynthesis": {
+      "accuracy": 0.5714285714285714,
+      "auc": 0.0,
+      "f1": 0.7272727272727273,
+      "precision": 1.0,
+      "recall": 0.5714285714285714,
+      "total_samples": 7,
+      "correct_samples": 4
+    },
+    "Generative": {
+      "accuracy": 0.3125,
+      "auc": 0.0,
+      "f1": 0.47619047619047616,
+      "precision": 1.0,
+      "recall": 0.3125,
+      "total_samples": 16,
+      "correct_samples": 5
+    },
+    "FaceReenactment": {
+      "accuracy": 0.6666666666666666,
+      "auc": 0.0,
+      "f1": 0.8,
+      "precision": 1.0,
+      "recall": 0.6666666666666666,
+      "total_samples": 6,
+      "correct_samples": 4
+    },
+    "Latent Diffusion": {
+      "accuracy": 0.8333333333333334,
+      "auc": 0.0,
+      "f1": 0.9090909090909091,
+      "precision": 1.0,
+      "recall": 0.8333333333333334,
+      "total_samples": 12,
+      "correct_samples": 10
+    },
+    "Pixel Diffusion": {
+      "accuracy": 1.0,
+      "auc": 0.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "total_samples": 2,
+      "correct_samples": 2
+    },
+    "AIGC": {
+      "accuracy": 0.0,
+      "auc": 0.0,
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "total_samples": 1,
+      "correct_samples": 0
+    },
+    "Non-Generative": {
+      "accuracy": 0.25,
+      "auc": 0.0,
+      "f1": 0.4,
+      "precision": 1.0,
+      "recall": 0.25,
+      "total_samples": 8,
+      "correct_samples": 2
+    },
+    "FaceSwap": {
+      "accuracy": 0.16666666666666666,
+      "auc": 0.0,
+      "f1": 0.2857142857142857,
+      "precision": 1.0,
+      "recall": 0.16666666666666666,
+      "total_samples": 6,
+      "correct_samples": 1
+    },
+    "Gan": {
+      "accuracy": 1.0,
+      "auc": 0.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "total_samples": 2,
+      "correct_samples": 2
+    },
+    "FaceEditing": {
+      "accuracy": 0.0,
+      "auc": 0.0,
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "total_samples": 1,
+      "correct_samples": 0
+    }
+  }
+}

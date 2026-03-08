@@ -1,0 +1,71 @@
+# ==================== 运行控制 ====================
+gpus: "4,5"                    # 使用的GPU编号
+flag: test                      # ✅ 设为 test
+
+# 模型权重
+checkpoint_path: "/mnt/data3/zhiyu/ForensicArtifacts/checkpoints/forensic_cross/noncurriculum/best_model.pth"  
+
+# 结果保存
+log_dir: "./test_results/forensic_cross"
+
+# ==================== 模型配置（与训练一致）====================
+model:
+  scene_in_channels: 4
+  signal_in_channels: 3
+  imaging_in_channels: 32
+  scene_channels: 64
+  imaging_channels: 64
+  signal_channels: 64
+  fusion_channels: 64
+  reduction: 4
+  hidden_dim: 256
+  dropout: 0.1
+
+# ==================== 数据配置 ====================
+data:
+  strict_mode: false
+
+# ==================== 测试数据集配置 ====================
+# 方式1: 单个测试集
+test_datasets:
+  - path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small_with_features.json"
+    target_domains: ["IMDL", "Doc", "deepfake", "AIGC"]
+    target_mani_types: null
+
+  - path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_medium_with_features.json"
+    target_domains: ["IMDL", "Doc", "deepfake", "AIGC"]
+    target_mani_types: null
+
+# 方式2: 多个测试集（取消注释使用）
+# test_datasets:
+#   - path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small.json"
+#     target_domains: ["IMDL"]
+#     target_mani_types: null
+#   
+#   - path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small.json"
+#     target_domains: ["Doc"]
+#     target_mani_types: null
+#   
+#   - path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small.json"
+#     target_domains: ["deepfake"]
+#     target_mani_types: null
+
+# ==================== 测试参数 ====================
+testing:
+  batch_size: 16                # 测试批大小
+  save_predictions: true        # 是否保存详细预测结果
+  save_heatmaps: false          # 是否保存热力图（暂不支持）
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+
+# 分布式配置
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"

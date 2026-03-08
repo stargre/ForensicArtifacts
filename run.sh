@@ -1,13 +1,12 @@
-#!/bin/bash
 
 # ============================================================
-# 虚假图像检测训练/测试启动脚本
+# 启动脚本
 # ============================================================
 
 set -e  # 遇错停止
 
 # ==================== 配置文件路径 ====================
-yaml_config="${yaml_config:-/mnt/data3/zhiyu/ForensicArtifacts/config/noncurriculum.yaml}"
+yaml_config="${yaml_config:-/mnt/data3/zhiyu/ForensicArtifacts/config/test/noncurriculum_test.yaml}"
 
 # 检查配置文件存在
 if [ ! -f "$yaml_config" ]; then
