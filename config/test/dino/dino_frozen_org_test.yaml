@@ -1,0 +1,63 @@
+# ==================== 运行控制 ====================
+gpus: "5"
+flag: test
+log_dir: "./log/test/dino_orth"
+checkpoint_path: "/mnt/data3/zhiyu/ForensicArtifacts/checkpoints/dino_orth/checkpoint_epoch_15.pth"
+
+# ==================== 模型配置 ====================
+model:
+  repo_path: "/mnt/data3/zhiyu/dino_clip/dinov2_repo"
+  backbone_name: "dinov2_vitb14_reg"
+  pretrained: true
+  freeze_backbone: true
+  pooling_type: "cls_patch_mean"
+
+  # 必须和训练完全一致！
+  shared_dim: 512           
+  forgery_dim: 256           
+  domain_dim: 256
+
+  forgery_hidden_dim: 512    
+  domain_projector_hidden_dim: 512
+
+  hidden_dim: 128           
+  domain_hidden_dim: 128   
+
+  dropout: 0.2
+  num_domains: 4
+
+# ==================== 数据配置 ====================
+data:
+  image_size: 224
+  strict_mode: false
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+# ==================== 测试集 ====================
+test_datasets:
+  path: "/mnt/public/public_datasets/OpenMMSecV2/jsons_v5/total_ood_test.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+# ==================== 测试参数 ====================
+testing:
+  batch_size: 32
+  threshold: null
+  save_predictions: true
+  prediction_save_path: "./log/test/dino_orth/test_predictions.csv"
+
+# ==================== 训练相关 loss 权重（建议保持一致） ====================
+training:
+  domain_loss_weight: 0.15
+  orth_loss_weight: 0.03
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+
+logging:
+  print_freq: 20

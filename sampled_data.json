@@ -1,0 +1,222 @@
+[
+  {
+    "domain": "Doc",
+    "image": "55788590609a4a8cbc5295ec9cb3cae4.jpg",
+    "label": 1,
+    "mani_type": "non-AIGC",
+    "mask": "/mnt/data0/public_datasets/OpenMMSecV2/Doc/non_aigc/splicing/masks/b07e4397b8394fb796dc52ebb62ae94f.png",
+    "ori_dataset": "DocTamper",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/Doc/non_aigc/splicing/imgs/55788590609a4a8cbc5295ec9cb3cae4.jpg",
+    "real_source": null,
+    "sub_mani_type": "splicing"
+  },
+  {
+    "domain": "deepfake",
+    "image": "1c6d94d9d8dc4552aaa1ca542739e695.png",
+    "label": 1,
+    "mani_type": "FaceSwap",
+    "mask": null,
+    "ori_dataset": "DF40",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/Deepfake/Fake/FaceSwap/MobileSwap/1c6d94d9d8dc4552aaa1ca542739e695.png",
+    "real_source": "CelebDF",
+    "sub_mani_type": "MobileSwap"
+  },
+  {
+    "domain": "IMDL",
+    "image": "fd6997fe94164ae98d5a71097d643d8a.tiff",
+    "label": 1,
+    "mani_type": "Generative",
+    "mask": "/mnt/data0/public_datasets/OpenMMSecV2/IMDL/generative/gan_lama/masks/fd6997fe94164ae98d5a71097d643d8a.png",
+    "ori_dataset": "GRE",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/IMDL/generative/gan_lama/imgs/fd6997fe94164ae98d5a71097d643d8a.tiff",
+    "real_source": "Coco, Flickr2k, VisualNews",
+    "sub_mani_type": "GAN-LaMa"
+  },
+  {
+    "domain": "AIGC",
+    "image": "c376ac6412c447fdb9928ca860fbb6c0.jpg",
+    "label": 1,
+    "mani_type": "Pixel Diffusion",
+    "mask": null,
+    "ori_dataset": "CommunityForensics",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/AIGC/pixel_diffusion/deepfloyd/c376ac6412c447fdb9928ca860fbb6c0.jpg",
+    "real_source": "coco",
+    "sub_mani_type": "Deepfloyd"
+  },
+  {
+    "domain": "AIGC",
+    "image": "9d4e1c9f34604fa093c2da08c7ce4555.jpg",
+    "label": 0,
+    "mani_type": null,
+    "mask": null,
+    "ori_dataset": "LAION",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/AIGC/laion/9d4e1c9f34604fa093c2da08c7ce4555.jpg",
+    "real_source": "LAION",
+    "sub_mani_type": null
+  },
+  {
+    "domain": "deepfake",
+    "image": "11fe6c35df0a4311a966efa955aa77ea.jpg",
+    "label": 0,
+    "mani_type": null,
+    "mask": null,
+    "ori_dataset": "CelebA",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/Deepfake/Real/CelebA/11fe6c35df0a4311a966efa955aa77ea.jpg",
+    "real_source": "CelebA",
+    "sub_mani_type": null
+  },
+  {
+    "domain": "Doc",
+    "image": "5478351d73a047c594fce64e1ca80742.jpg",
+    "label": 1,
+    "mani_type": "non-AIGC",
+    "mask": "/mnt/data0/public_datasets/OpenMMSecV2/Doc/non_aigc/splicing/masks/d9c6c6c633744377a8273de75d165685.png",
+    "ori_dataset": "DocTamper",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/Doc/non_aigc/splicing/imgs/5478351d73a047c594fce64e1ca80742.jpg",
+    "real_source": null,
+    "sub_mani_type": "splicing"
+  },
+  {
+    "domain": "AIGC",
+    "image": "cef8cf380c6d4bd48922b46de0be2f00.jpg",
+    "label": 1,
+    "mani_type": "Gan",
+    "mask": null,
+    "ori_dataset": "CommunityForensics",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/AIGC/GAN/StyleSwin/cef8cf380c6d4bd48922b46de0be2f00.jpg",
+    "real_source": "ffhq",
+    "sub_mani_type": "Styleswin"
+  },
+  {
+    "domain": "Doc",
+    "image": "1224a50fd8da402893aa7432f02d5a63.jpg",
+    "label": 1,
+    "mani_type": "non-AIGC",
+    "mask": "/mnt/data0/public_datasets/OpenMMSecV2/Doc/non_aigc/splicing/masks/c9cf4f8f0ca64368b2b539cda51ba7ba.png",
+    "ori_dataset": "DocTamper",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/Doc/non_aigc/splicing/imgs/1224a50fd8da402893aa7432f02d5a63.jpg",
+    "real_source": null,
+    "sub_mani_type": "splicing"
+  },
+  {
+    "domain": "IMDL",
+    "image": "d8dcd534694b400c929d3a40a3a789dc.jpg",
+    "label": 0,
+    "mani_type": null,
+    "mask": null,
+    "ori_dataset": "tampercoco",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/IMDL/non_generative/auto_pipeline/imgs/d8dcd534694b400c929d3a40a3a789dc.jpg",
+    "real_source": "Coco",
+    "sub_mani_type": null
+  },
+  {
+    "domain": "AIGC",
+    "image": "968e85f721644045a408d261da4c53be.jpg",
+    "label": 0,
+    "mani_type": null,
+    "mask": null,
+    "ori_dataset": "LAION",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/AIGC/laion/968e85f721644045a408d261da4c53be.jpg",
+    "real_source": "LAION",
+    "sub_mani_type": null
+  },
+  {
+    "domain": "deepfake",
+    "image": "8c34e3f84cd443aeb97711290573b6a9.png",
+    "label": 1,
+    "mani_type": "EntireFaceSynthesis",
+    "mask": null,
+    "ori_dataset": "DF40",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/Deepfake/Fake/EntireFaceSynthesis/VQGAN/8c34e3f84cd443aeb97711290573b6a9.png",
+    "real_source": "CelebDF",
+    "sub_mani_type": "VQGAN"
+  },
+  {
+    "domain": "IMDL",
+    "image": "f5c751c7401148c6b1aded1a690c3e87.jpg",
+    "label": 1,
+    "mani_type": "Non-Generative",
+    "mask": "/mnt/data0/public_datasets/OpenMMSecV2/IMDL/non_generative/auto_pipeline/masks/f5c751c7401148c6b1aded1a690c3e87.png",
+    "ori_dataset": "tampercoco",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/IMDL/non_generative/auto_pipeline/imgs/f5c751c7401148c6b1aded1a690c3e87.jpg",
+    "real_source": "Coco",
+    "sub_mani_type": "Auto-Pipeline"
+  },
+  {
+    "domain": "AIGC",
+    "image": "8498be1e03984e859be6a2166f84fdc6.jpg",
+    "label": 0,
+    "mani_type": null,
+    "mask": null,
+    "ori_dataset": "LAION",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/AIGC/laion/8498be1e03984e859be6a2166f84fdc6.jpg",
+    "real_source": "LAION",
+    "sub_mani_type": null
+  },
+  {
+    "domain": "deepfake",
+    "image": "98e0d45a04a242b9ba794fc02d7e6a28.png",
+    "label": 0,
+    "mani_type": null,
+    "mask": null,
+    "ori_dataset": "FF++",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/Deepfake/Real/FF++/98e0d45a04a242b9ba794fc02d7e6a28.png",
+    "real_source": "FF++",
+    "sub_mani_type": null
+  },
+  {
+    "domain": "IMDL",
+    "image": "78e27505be62482db1e527655bdb74ae.jpg",
+    "label": 1,
+    "mani_type": "Commercial",
+    "mask": "/mnt/data0/public_datasets/OpenMMSecV2/IMDL/commercial/dalle_2/masks/78e27505be62482db1e527655bdb74ae.png",
+    "ori_dataset": "Autospice",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/IMDL/commercial/dalle_2/imgs/78e27505be62482db1e527655bdb74ae.jpg",
+    "real_source": "Visual News",
+    "sub_mani_type": "DALLE 2"
+  },
+  {
+    "domain": "Doc",
+    "image": "3dbb40255c4a4cdeb50f6ab91a34428f.jpg",
+    "label": 1,
+    "mani_type": "non-AIGC",
+    "mask": "/mnt/data0/public_datasets/OpenMMSecV2/Doc/non_aigc/splicing/masks/d71f1fc4580c4dde8f25e435f6b68b69.png",
+    "ori_dataset": "DocTamper",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/Doc/non_aigc/splicing/imgs/3dbb40255c4a4cdeb50f6ab91a34428f.jpg",
+    "real_source": null,
+    "sub_mani_type": "splicing"
+  },
+  {
+    "domain": "deepfake",
+    "image": "7101d1b8abaa42ab8b7d673688b9bb2f.png",
+    "label": 1,
+    "mani_type": "FaceReenactment",
+    "mask": null,
+    "ori_dataset": "FF++",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/Deepfake/Fake/FaceReenactment/NeuralTextures/7101d1b8abaa42ab8b7d673688b9bb2f.png",
+    "real_source": "FF++",
+    "sub_mani_type": "NeuralTextures"
+  },
+  {
+    "domain": "Doc",
+    "image": "05484bde79854e0a994dd0447b5e6fd0.jpg",
+    "label": 1,
+    "mani_type": "non-AIGC",
+    "mask": "/mnt/data0/public_datasets/OpenMMSecV2/Doc/non_aigc/splicing/masks/186f7fc018d04dc6be5aa72b58ccf7a1.png",
+    "ori_dataset": "DocTamper",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/Doc/non_aigc/splicing/imgs/05484bde79854e0a994dd0447b5e6fd0.jpg",
+    "real_source": null,
+    "sub_mani_type": "splicing"
+  },
+  {
+    "domain": "IMDL",
+    "image": "dec06ef6681e48648970dbe30efb7562.jpg",
+    "label": 0,
+    "mani_type": null,
+    "mask": null,
+    "ori_dataset": "Coco",
+    "path": "/mnt/data0/public_datasets/OpenMMSecV2/IMDL/generative/coco/imgs/dec06ef6681e48648970dbe30efb7562.jpg",
+    "real_source": "Coco",
+    "sub_mani_type": null
+  }
+]

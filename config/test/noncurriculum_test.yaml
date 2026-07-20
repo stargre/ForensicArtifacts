@@ -1,14 +1,13 @@
-# ==================== 运行控制 ====================
-gpus: "4,5"                    # 使用的GPU编号
-flag: test                      # ✅ 设为 test
+gpus: "4"                    # 使用的GPU编号
+flag: test                    
 
 # 模型权重
-checkpoint_path: "/mnt/data3/zhiyu/ForensicArtifacts/checkpoints/forensic_cross/noncurriculum/best_model.pth"  
+checkpoint_path: "/mnt/data3/zhiyu/ForensicArtifacts/checkpoints/forensic_cross/noncurriculum/checkpoint_epoch_50.pth"  
 
 # 结果保存
-log_dir: "./test_results/forensic_cross"
+log_dir: "./log/test_results/noncurriculum/50epoch"
 
-# ==================== 模型配置（与训练一致）====================
+# ==================== 模型配置 ====================
 model:
   scene_in_channels: 4
   signal_in_channels: 3
@@ -26,29 +25,16 @@ data:
   strict_mode: false
 
 # ==================== 测试数据集配置 ====================
-# 方式1: 单个测试集
+# 多个个测试集
 test_datasets:
-  - path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small_with_features.json"
+  - path: "/mnt/data2/zhiyu/Data/small_openmmsec/test_small_with_features.json"
     target_domains: ["IMDL", "Doc", "deepfake", "AIGC"]
     target_mani_types: null
 
-  - path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_medium_with_features.json"
+  - path: "/mnt/data2/zhiyu/Data/small_openmmsec/test_medium_with_features.json"
     target_domains: ["IMDL", "Doc", "deepfake", "AIGC"]
     target_mani_types: null
 
-# 方式2: 多个测试集（取消注释使用）
-# test_datasets:
-#   - path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small.json"
-#     target_domains: ["IMDL"]
-#     target_mani_types: null
-#   
-#   - path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small.json"
-#     target_domains: ["Doc"]
-#     target_mani_types: null
-#   
-#   - path: "/mnt/data3/zhiyu/Data/small_openmmsec/test_small.json"
-#     target_domains: ["deepfake"]
-#     target_mani_types: null
 
 # ==================== 测试参数 ====================
 testing:

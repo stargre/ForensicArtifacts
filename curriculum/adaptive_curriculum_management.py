@@ -3,14 +3,12 @@
 """
 自适应课程学习管理器（Adaptive Curriculum Learning Manager）
 
-核心特性：
 1. 数据量线性增长：0.3 → 1.0，每2轮更新比例
 2. 难度动态更新：难度 = f(初始置信度, 训练损失)
 3. 高置信度 = 简单样本（保持原始语义）
 4. 加权随机采样：避免batch内难度单一
 5. 完整分布式支持：多GPU损失聚合
 
-作者：最终优化版本
 """
 
 import numpy as np
@@ -25,10 +23,8 @@ class AdaptiveCurriculumSampler(Sampler):
     """
     自适应课程学习采样器
     
-    功能：
     1. 根据置信度选择 top_k 个最简单的样本（高置信度 = 简单）
     2. 对选中的样本进行加权随机采样
-    3. 支持分布式训练
     """
     
     def __init__(self, 
@@ -44,8 +40,7 @@ class AdaptiveCurriculumSampler(Sampler):
                               高置信度 = 简单样本
             top_k: 本轮选择的样本数量
             confidence_weight: 置信度对采样顺序的影响 [0, 1]
-                - 0.0: 完全随机（忽略置信度）
-                - 0.5: 中等引导（推荐）
+                - 0.0: 完全随机，忽略置信度
                 - 1.0: 严格按置信度排序
             num_replicas: 分布式进程数
             rank: 当前进程编号
@@ -84,7 +79,6 @@ class AdaptiveCurriculumSampler(Sampler):
         2. 打乱：对这 top_k 个样本进行加权随机打乱
         """
         # 阶段1：选择置信度最高的 top_k 个样本
-        # argsort 升序，取最后 top_k 个（最高置信度）
         sorted_by_conf = np.argsort(self.confidence_scores)
         selected_indices = sorted_by_conf[-self.top_k:]  # 取置信度最高的
         selected_confidences = self.confidence_scores[selected_indices]
@@ -109,7 +103,7 @@ class AdaptiveCurriculumSampler(Sampler):
         # - 生成随机扰动
         # - 按混合键重新排序
         
-        # 置信度越高，rank 越小（排在前面）
+        # 置信度越高，rank 越小
         conf_order = np.argsort(-selected_confidences)  # 降序排列的索引
         relative_rank = np.zeros(k)
         relative_rank[conf_order] = np.arange(k) / max(k - 1, 1)

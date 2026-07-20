@@ -72,7 +72,7 @@ class SEBlock(nn.Module):
 
 class GatedFusionModule(nn.Module):
     """
-    跨维度门控协同融合模块（SE注意力平替版）
+    跨维度门控协同融合模块（SE注意力版）
     
     输入:
         A1: (B, C, H, W)  —— Scene consistency

@@ -1,0 +1,164 @@
+# ==================== 运行控制 ====================
+gpus: "4,5"
+flag: train
+
+log_dir: "./log/dino_fixed_topx/stage-ahead-25-ratio"
+checkpoint_path: null
+save_dir: "./checkpoints/dino_fixed_topx_stage-ahead-25-ratio"
+resume: false
+
+# ==================== 模型配置 ====================
+model:
+  # 本地 dinov2 仓库路径
+  repo_path: "/mnt/data3/zhiyu/dino_clip/dinov2_repo"
+
+  backbone_name: "dinov2_vitb14_reg"
+
+  pretrained: true
+  freeze_backbone: true
+
+  # 如果 DinoV2Wrapper 支持这些字段，保留更稳
+  unfreeze_last_n_blocks: 0
+  unfreeze_norm: true
+
+  # 特征聚合方式: cls / patch_mean / cls_patch_mean
+  pooling_type: "cls_patch_mean"
+
+  hidden_dim: 512
+  dropout: 0.1
+
+  # 固定硬分流模型里依然支持 LayerNorm
+  use_feature_norm: false
+
+  # 域信息
+  num_domains: 4
+  domain_names: ["AIGC","deepfake","IMDL", "Doc"]
+
+# ==================== 数据配置 ====================
+data:
+  image_size: 224
+  strict_mode: false
+
+  # DINOv2 标准归一化
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+train_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/train_big.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+val_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/val_medium.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+test_datasets:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/test_big.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+# 训练结束后自动测试
+test_after_train: true
+
+# ==================== 固定硬分流配置 ====================
+routing:
+  # 前 topx_ratio 比例的“高抑制分数通道”进入 shortcut（域偏置容器）
+  # 剩余通道进入 core
+  topx_ratio: 0.25
+
+  # 抑制分数模式:
+  #   diff  : ReLU(dom_norm - alpha * cls_norm)
+  #   ratio : dom_norm / (cls_norm + eps)
+  score_mode: "ratio"
+
+  # diff 模式里的 alpha
+  alpha: 1.0
+
+  # 用冻结 backbone 特征训练 probe 的参数
+  probe_epochs: 5
+  probe_batch_size: 512
+  probe_lr: 1.0e-3
+  probe_weight_decay: 1.0e-4
+
+  # 0 表示线性 probe；>0 表示两层 MLP probe
+  probe_hidden_dim: 0
+  probe_dropout: 0.0
+
+  # 计算通道分数时的 batch size
+  score_batch_size: 512
+
+  # 是否使用 train augmentation 来提取 score 阶段的特征
+  # 建议先 false，保证分数更稳定
+  use_train_aug_for_score: false
+
+  extra_probe_keys:
+    - ori_dataset
+    - real_source
+
+# ==================== 训练参数 ====================
+training:
+  epochs: 30
+  batch_size: 16
+  grad_clip: 1.0
+
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-4
+    backbone_lr: 1.0e-5
+    weight_decay: 1.0e-4
+    betas: [0.9, 0.999]
+
+  scheduler:
+    name: "CosineAnnealingLR"
+    T_max: 30
+    eta_min: 1.0e-6
+
+  early_stopping:
+    enabled: true
+    patience: 8
+    min_delta: 0.0005
+    monitor: "val_auc"
+
+# ==================== 损失配置 ====================
+# 固定硬分流正式训练阶段只使用 L_cls
+loss:
+  lambda_cls: 1.0
+
+# ==================== EMA ====================
+ema:
+  enabled: false
+  dynamic_decay: false
+  decay: 0.999
+
+  # 验证时优先用 EMA 模型
+  use_ema_for_val: false
+
+  # 当前没开 curriculum，其实无所谓，保留兼容
+  use_ema_for_curriculum: false
+  save_ema: true
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"
+
+# ==================== 可视化 ====================
+visualization:
+  enabled: true
+  max_mask_values: 200000
+
+logging:
+  print_freq: 20
+  save_freq: 5

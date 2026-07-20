@@ -1,0 +1,45 @@
+# ==================== 运行控制 ====================
+gpus: "4"
+flag: test
+log_dir: "./log/test/dino_baseline"
+checkpoint_path: "/mnt/data3/zhiyu/ForensicArtifacts/checkpoints/dino_baseline/checkpoint_epoch_25.pth"
+
+# ==================== 模型配置 ====================
+model:
+  repo_path: "/mnt/data3/zhiyu/dino_clip/dinov2_repo"
+  backbone_name: "dinov2_vitb14_reg"
+  pooling_type: "cls_patch_mean"
+  hidden_dim: 512
+  dropout: 0.1
+
+# ==================== 数据配置 ====================
+data:
+  image_size: 224
+  strict_mode: false
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+# ==================== 测试集 ====================
+test_datasets:
+  path: "/mnt/public/public_datasets/OpenMMSecV2/jsons_v5/total_ood_test.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+# ==================== 测试参数 ====================
+testing:
+  batch_size: 32
+  threshold: null
+  save_predictions: true
+  prediction_save_path: "./log/test/dino_baseline/test_predictions.csv"
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+
+# ==================== 日志配置 ====================
+logging:
+  print_freq: 20

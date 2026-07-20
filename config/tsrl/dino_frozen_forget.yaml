@@ -1,0 +1,152 @@
+# ==================== 运行控制 ====================
+gpus: "2,3,4,5"
+flag: train
+
+log_dir: "./log/idtest/vitb14_reg/unfrozen7-asam0.2-prob-id_test"
+checkpoint_path: null
+save_dir: "/mnt/data2/zhiyu/checkpoints/idtest/vitb14_reg/unfrozen7-asam0.2-prob-id_test"
+resume: false
+
+test_after_train: true
+
+# ==================== 模型配置 ====================
+model:
+  repo_path: "/mnt/data3/zhiyu/dino_clip/dinov2_repo"
+  backbone_name: "dinov2_vitb14_reg"
+  use_reg_token: false
+
+  pretrained: true
+  freeze_backbone: true
+  unfreeze_last_n_blocks: 7
+  unfreeze_norm: true
+
+  pooling_type: "cls_patch_mean"
+
+  hidden_dim: 1024
+  dropout: 0.1
+  use_feature_norm: false
+
+  num_domains: 4
+  domain_names: ["AIGC", "deepfake", "IMDL", "Doc"]
+
+# ==================== 数据配置 ====================
+data:
+  image_size: 224
+  strict_mode: false
+  mean: [0.485, 0.456, 0.406]
+  std:  [0.229, 0.224, 0.225]
+
+train_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/train_big.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+val_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/val_medium.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+test_datasets:
+  - name: "test_large"
+    path: "/mnt/data2/zhiyu/Data/small_openmmsec/test_large.json"
+    target_domains: null
+    target_labels: null
+    target_mani_types: null
+  - name: "id_test"
+    path: "/mnt/data2/zhiyu/Data/small_openmmsec/id_test.json"
+    target_domains: null
+    target_labels: null
+    target_mani_types: null
+
+  
+
+# ==================== routing / stochastic suppress (保留字段，不影响 TSRL) ====================
+routing:
+  topx_ratio: 1.0
+  score_mode: "diff"
+  alpha: 2.0
+  probe_epochs: 5
+  probe_batch_size: 512
+  probe_lr: 1.0e-3
+  probe_weight_decay: 1.0e-4
+  probe_hidden_dim: 0
+  probe_dropout: 0.0
+  score_batch_size: 512
+  use_train_aug_for_score: false
+  extra_probe_keys: ["ori_dataset", "real_source"]
+  stochastic_enabled: false
+  dual_view_train: false
+  drop_ratio: 0.40
+  drop_beta: 0.70
+  drop_active_p: 0.80
+  prob_uniform_mix: 0.10
+  suppress_position: "before_block"
+  suppress_block_index: 11
+
+# ==================== 训练参数 ====================
+training:
+  epochs: 30
+  batch_size: 32
+  grad_clip: 1.0
+  ddp_find_unused_parameters: true
+
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-5
+    backbone_lr: 1.0e-6
+    weight_decay: 1.0e-5
+    betas: [0.9, 0.999]
+    sam:
+      enabled: true
+      rho: 0.2
+      adaptive: true
+
+  scheduler:
+    name: "CosineAnnealingLR"
+    T_max: 30
+    eta_min: 1.0e-6
+
+  early_stopping:
+    enabled: true
+    patience: 5
+    min_delta: 0.0005
+    monitor: "val_auc"
+
+# ==================== 损失配置 (保留字段，不影响 TSRL) ====================
+loss:
+  lambda_cls: 1.0
+  lambda_cons: 0.30
+  cons_temperature: 2.0
+
+# ==================== EMA ====================
+ema:
+  enabled: false
+  decay: 0.999
+
+curriculum:
+  enabled: true
+  mode: "prob"  # "forget"  or "prob"
+  warmup_epochs: 1     # 前2个epoch纯正常训练
+  p_min: 0.05          # 最小drop概率
+  p_max: 0.90          # 最大drop概率
+  alpha: 2.5           # 指数强度
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+  dist_timeout_minutes: 180
+
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"
+
+logging:
+  print_freq: 20
+  save_freq: 5

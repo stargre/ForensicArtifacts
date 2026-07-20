@@ -1,0 +1,178 @@
+# ==================== 运行控制 ====================
+gpus: "2,3"
+flag: train
+
+log_dir: "./log/dino_lora/baseline/dino_frozen_v2"
+checkpoint_path: null
+save_dir: "/mnt/data2/zhiyu/checkpoints/dino_lora/baseline/dino_frozen_v2"
+
+resume: false
+
+# ==================== 模型配置 ====================
+model:
+  repo_path: "/mnt/data3/zhiyu/dino_clip/dinov2_repo"
+
+  # DINOv2 with registers
+  backbone_name: "dinov2_vitb14_reg"
+  pretrained: true
+
+  # LoRA baseline 下仍然保持 backbone 原始参数冻结
+  freeze_backbone: true
+  unfreeze_last_n_blocks: 0
+  unfreeze_norm: false
+
+  enable_attention_pooling: false
+  attention_hidden_dim: 256
+
+  # 特征聚合方式
+  # cls_patch_attention_mean
+  # "cls",
+  #           "patch_mean",
+  #           "patch_max",
+  #           "cls_patch_mean",
+  #           "cls_patch_max",
+  #           "patch_mean_max",
+  #           "cls_patch_mean_max",
+  #           "cls_patch_attention_mean",
+  pooling_type: "cls_patch_mean"
+  hidden_dim: 512
+  dropout: 0.2
+  num_classes: 1
+
+# ==================== LoRA 配置 ====================
+lora:
+  enabled: false
+
+  r: 16
+  alpha: 16
+  dropout: 0.0
+
+  # DINOv2 attention 常见结构：
+  # blocks.*.attn.qkv
+  # blocks.*.attn.proj
+  target_modules:
+    - "attn.qkv"
+    - "attn.proj"
+
+  # 你的分类头名字是 model.classifier，内部还有 classifier.classifier.Sequential
+  head_keywords:
+    - "classifier"
+
+# ==================== 数据配置 ====================
+data:
+  image_size: 224
+  strict_mode: false
+
+  # DINOv2 标准归一化
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+train_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/train_big.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+val_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/val_big.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+test_datasets:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/test_large.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+# ==================== 训练参数 ====================
+training:
+  epochs: 20
+  batch_size: 32
+  grad_clip: 1.0
+
+  test_every: 0
+  # 是否在训练阶段的 epoch-test 中测试 EMA
+  # ema.enabled=false 时这个选项不会生效
+  test_ema_each_epoch: true
+  # epoch-test 是否打印完整指标
+  test_verbose_each_epoch: true
+
+  # Val-guided 控制：
+  # 1. val_control_score = 0.5 * val_macro_auc + 0.5 * val_macro_f1
+  # 2. 若当前 epoch 不改善，则 ReduceLROnPlateau 先降 LR
+  # 3. 每轮 test 保留打印
+  # 4. test 打印后，若 val_control_score 未改善，则 rollback 到历史 val-control 最优参数
+  val_control:
+    min_delta: 0.0005
+    rollback_on_no_improve: true
+    clear_optimizer_on_rollback: true
+
+  optimizer:
+    name: "AdamW"
+
+    # LoRA + 分类头学习率
+    lr: 0.0001
+    head_lr: 0.0001
+    lora_lr: 0.0001
+
+    # 原始 DINO 理论上不训练；这里只是兜底
+    backbone_lr: 0.00001
+
+    weight_decay: 0.0001
+    betas: [0.9, 0.999]
+
+    # 支持 sam / asam；当前先关闭，避免和 val-guided rollback 同时引入过多变量
+    sam:
+      enabled: false
+      type: "asam"
+      rho: 0.2
+      eta: 0.00
+
+  scheduler:
+    # 推荐当前实验使用 plateau，而不是 cosine。
+    type: "plateau"
+    name: "ReduceLROnPlateau"
+    mode: "max"
+    factor: 0.5
+    patience: 0
+    threshold: 0.0005
+    threshold_mode: "abs"
+    cooldown: 0
+    min_lr: 0.000001
+
+    # 若要做对照实验，可改为：
+    # type: "cosine"
+    # name: "CosineAnnealingLR"
+    # T_max: 30
+    # eta_min: 0.000001
+
+  early_stopping:
+    enabled: true
+    patience: 5
+    min_delta: 0.0005
+    monitor: "val_control_score"
+
+# ==================== EMA 配置 ====================
+ema:
+  enabled: false
+  use_ema_for_val: true
+  save_ema: true
+  decay: 0.999
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"
+
+logging:
+  print_freq: 20
+  save_freq: 5

@@ -272,7 +272,23 @@ class ForensicFeatureDataset(Dataset):
         """
         return self._sorted_indices.copy()
 
-    # ✅ 新增：获取指定索引的置信度
+    def get_domain(self, idx):
+        """
+        获取样本所属的域
+        
+        Args:
+            idx: 样本索引
+            
+        Returns:
+            str: 域名（如 'IMDL', 'Doc', 'deepfake', 'AIGC'）
+        """
+        if idx < 0 or idx >= len(self.samples):
+            raise IndexError(f"索引 {idx} 超出范围")
+        
+        domain = self.samples[idx].get('domain', 'Unknown')
+        return str(domain)
+    
+    # 获取指定索引的置信度
     def get_confidence(self, idx):
         """
         获取指定索引样本的置信度

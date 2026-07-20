@@ -1,0 +1,157 @@
+# ==================== 运行控制 ====================
+gpus: "4,5"
+flag: train
+
+log_dir: "./log/dino_soft_stage2"
+checkpoint_path: null
+save_dir: "./checkpoints/dino_soft_stage2"
+resume: false
+
+# ==================== 模型配置 ====================
+model:
+  repo_path: "/mnt/data3/zhiyu/dino_clip/dinov2_repo"
+  backbone_name: "dinov2_vitb14_reg"
+
+  pretrained: true
+  freeze_backbone: true
+  unfreeze_last_n_blocks: 0
+  unfreeze_norm: true
+
+  pooling_type: "cls_patch_mean"
+
+  hidden_dim: 512
+  dropout: 0.1
+  use_feature_norm: false
+
+  num_domains: 4
+  domain_names: ["AIGC", "deepfake", "IMDL", "Doc"]
+
+# ==================== 数据配置 ====================
+data:
+  image_size: 224
+  strict_mode: false
+
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+train_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/train_big.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+val_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/val_medium.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+test_datasets:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/test_big.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+test_after_train: true
+
+# ==================== routing / stochastic suppress ====================
+routing:
+  # 这里只用于日志 / 分析 top shortcut，不再直接作为训练时 hard mask
+  topx_ratio: 0.25
+
+  # suppress score 计算方式
+  score_mode: "diff"
+  alpha: 2
+
+  # probe 参数
+  probe_epochs: 5
+  probe_batch_size: 512
+  probe_lr: 1.0e-3
+  probe_weight_decay: 1.0e-4
+  probe_hidden_dim: 0
+  probe_dropout: 0.0
+
+  score_batch_size: 512
+  use_train_aug_for_score: false
+
+  extra_probe_keys:
+    - ori_dataset
+    - real_source
+
+  # ===== stochastic pre-pooling soft suppress =====
+  stochastic_enabled: true
+  dual_view_train: true
+
+  # 每次实际随机 suppress 的通道比例
+  drop_ratio: 0.5
+
+  # soft suppress 强度: x <- x * (1 - beta * m)
+  drop_beta: 0.8
+
+  # 一个 batch 启用 stochastic suppress 的概率
+  drop_active_p: 0.8
+
+  # score-based prob 与均匀分布轻微混合，避免过尖
+  prob_uniform_mix: 0.1
+
+# ==================== 训练参数 ====================
+training:
+  epochs: 30
+  batch_size: 16
+  grad_clip: 1.0
+
+  optimizer:
+    name: "AdamW"
+    lr: 5.0e-5
+    backbone_lr: 5.0e-6
+    weight_decay: 5.0e-5
+    betas: [0.9, 0.999]
+
+  scheduler:
+    name: "CosineAnnealingLR"
+    T_max: 30
+    eta_min: 1.0e-6
+
+  early_stopping:
+    enabled: true
+    patience: 5
+    min_delta: 0.0005
+    monitor: "val_auc"
+
+# ==================== 损失配置 ====================
+loss:
+  lambda_cls: 1.0
+  lambda_cons: 0.8
+  cons_temperature: 2.0
+
+# ==================== EMA ====================
+ema:
+  enabled: false
+  dynamic_decay: false
+  decay: 0.999
+
+  use_ema_for_val: false
+  use_ema_for_curriculum: false
+  save_ema: true
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"
+
+# ==================== 可视化 ====================
+visualization:
+  enabled: true
+  max_mask_values: 200000
+
+logging:
+  print_freq: 20
+  save_freq: 5

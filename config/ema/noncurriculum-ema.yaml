@@ -1,0 +1,181 @@
+# ==================== 运行控制 ====================
+gpus: "4,5"
+flag: train
+
+# 日志和检查点
+log_dir: "./log/forensic_ema/noncurriculum_ema_shadow"
+checkpoint_path: null
+save_dir: "./checkpoints/forensic_ema/noncurriculum_ema_shadow"
+resume: false   # 如果加载best_model作为初始化继续训，建议false
+
+# ==================== 模型配置 ====================
+model:
+  scene_in_channels: 4
+  signal_in_channels: 3
+  imaging_in_channels: 32
+
+  scene_channels: 64
+  imaging_channels: 64
+  signal_channels: 64
+
+  fusion_channels: 64
+  reduction: 4
+
+  hidden_dim: 256
+  dropout: 0.1
+
+# ==================== 数据配置 ====================
+data:
+  strict_mode: false
+
+# ==================== 课程学习配置 ====================
+# 当前先保持 noncurriculum
+curriculum:
+  enabled: false
+  manager_type: "domain_weighted"
+
+  domain_weighted:
+    domain_names:
+      - "IMDL"
+      - "Doc"
+      - "deepfake"
+      - "AIGC"
+
+    initial_domain_weights:
+      deepfake: 0.35
+      IMDL: 0.25
+      Doc: 0.20
+      AIGC: 0.20
+
+    difficulty_metric: "auc"
+    start_ratio: 0.5
+    end_ratio: 1.0
+    plateau_epochs: 5
+
+    warmup_epochs: 3
+    dro_start_epoch: 5
+    dro_weight: 0.0
+    dro_final_weight: 0.85
+    eta: 2.0
+
+    min_domain_weight: 0.15
+    loss_ema_decay: 0.9
+    seed: 42
+
+# ==================== 数据集 ====================
+train_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/train_medium_with_features.json"
+  target_domains: null
+  target_mani_types: null
+
+val_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/val_medium_with_features.json"
+  target_domains: null
+  target_mani_types: null
+
+test_datasets:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/test_small.json"
+  target_domains: ["IMDL", "Doc", "deepfake", "AIGC"]
+
+# ==================== 训练参数 ====================
+training:
+  epochs: 100
+  batch_size: 16
+  val_batch_size: 16
+  gradient_accumulation_steps: 1   # 当前代码未启用梯度累积，请保持为1
+
+  use_feature_augment: true
+  flip_prob: 0.5
+  rotate_prob: 0.3
+  channel_drop_prob: 0.2
+  noise_prob: 0.3
+  noise_std: 0.05
+
+  warmup_epochs: 5
+  grad_clip: 1.0
+
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-4
+    weight_decay: 1.0e-4
+    betas: [0.9, 0.999]
+
+  scheduler:
+    name: "CosineAnnealingLR"
+    T_max: 30
+    eta_min: 1.0e-6
+
+  # 损失函数
+  loss:
+    type: "focal"
+    focal_alpha: 0.75
+    focal_gamma: 0.8
+
+  loss_weights:
+    cls_loss: 1.0
+    sparse_loss: 0.1
+
+  # ==================== EMA Shadow Teacher 配置 ====================
+  teacher:
+    enabled: true
+    ema_decay_min: 0.90
+    ema_decay_max: 0.99
+    copy_bn_buffers: true
+    validate_teacher: true
+
+    # 当前建议仍以student为主保存best
+    save_best_by: "student"   # "student" or "teacher"
+    best_metric: "auc"        # "auc" or "acc"
+
+  # ==================== 早停 ====================
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.0005
+    monitor: "val_auc"
+
+# ==================== 测试参数 ====================
+testing:
+  batch_size: 64
+  save_predictions: false
+  save_heatmaps: false
+
+# ==================== 评估指标 ====================
+evaluators:
+  - name: "F1"
+    init_config:
+      threshold: 0.5
+  - name: "Accuracy"
+  - name: "Balanced Accuracy"
+  - name: "AUC-ROC"
+  - name: "AUC-PR"
+  - name: "Precision"
+  - name: "Recall"
+  - name: "Specificity"
+  - name: "MCC"
+  - name: "Cohen Kappa"
+  - name: "Log Loss"
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+  deterministic: false
+
+# ==================== 分布式训练参数 ====================
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"
+  find_unused_parameters: true
+
+# ==================== 日志配置 ====================
+logging:
+  print_freq: 10
+  save_freq: 15
+  tensorboard: true
+  wandb: false
+  wandb_project: "forensic-detection"

@@ -1,0 +1,111 @@
+# ==================== 运行控制 ====================
+gpus: "4,5"
+flag: train
+
+log_dir: "./log/dino_baseline_domain_curriculum_2"
+checkpoint_path: null
+save_dir: "./checkpoints/dino_baseline_domain_curriculum_2"
+resume: false
+
+# ==================== 模型配置 ====================
+model:
+  repo_path: "/mnt/data3/zhiyu/dino_clip/dinov2_repo"
+  backbone_name: "dinov2_vitb14_reg"
+  pretrained: true
+  freeze_backbone: true
+  pooling_type: "cls_patch_mean"
+  hidden_dim: 512
+  dropout: 0.15
+  num_classes: 1
+
+# ==================== 数据配置 ====================
+data:
+  image_size: 224
+  strict_mode: false
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+train_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/train_big.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+val_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/val_medium.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+test_datasets:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/test_medium.json"
+  target_domains: null
+
+# ==================== 训练参数 ====================
+training:
+  epochs: 20
+  batch_size: 16
+  grad_clip: 1.0
+
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-4
+    weight_decay: 5.0e-2
+    betas: [0.9, 0.999]
+
+  scheduler:
+    name: "flat_then_cosine"
+    flat_epochs: 12
+    eta_min: 1.0e-5
+
+  early_stopping:
+    enabled: true
+    patience: 6
+    min_delta: 0.0005
+    monitor: "val_auc"
+
+# ==================== Curriculum 配置 ====================
+curriculum:
+  enabled: true
+  manager_type: "domain_weighted"
+  stop_epoch: 12
+
+  domain_weighted:
+    domain_names: ["deepfake", "AIGC", "IMDL", "Doc"]
+    difficulty_metric: "val_auc"
+
+    focus_epochs: 12
+    start_ratio: 0.4
+    end_ratio: 1.0
+
+    min_domain_weight: 0.15
+    max_domain_weight: 0.40
+
+    eta: 4.0
+    max_focus_alpha: 0.60
+
+    mastery_auc: 0.97
+    base_weight_mode: "dataset"
+
+    # 新增
+    mastered_weight_mode: "min"    # 达标域降到最小权重
+    post_focus_enabled: true       # 后12轮仍继续根据val更新
+    post_focus_alpha: 0.20         # 后期弱动态调整
+
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"
+
+logging:
+  print_freq: 20
+  save_freq: 5

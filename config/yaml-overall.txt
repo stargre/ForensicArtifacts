@@ -1,0 +1,30 @@
+这里记录了做了哪些实验以及配置
+
+课程学习：
++ 域驱动课程学习
++ 自适应课程学习
++ 反向课程学习
++ 静态置信度课程学习
++ 课程学习的参考模型，也就是置信度来源？
++ tsrl 针对遗忘历史进行特定->发现模型不会遗忘？
++ 
+
+dino：
++ 不同规模base、large、giant
++ 不同插件，ema，sam优化器
++ 不同token的消融    "cls"
+    "patch_mean"
+    "patch_max"
+    "cls_patch_mean"
+    "cls_patch_max"
+    "patch_mean_max"
+    "cls_patch_mean_max"
+    "cls_patch_attention_mean"
+
+在针对去域的无论是域相关课程学习，还是做了按照捷径分数进行抑制，还是按照域进行抑制，
+都有做了探针测试，不仅提供了分数参考，同时方面本地看到反馈
+
+lora
++ 
+
++ 计算通道分数，通过抑制通道来试图去掉模型对捷径的学习

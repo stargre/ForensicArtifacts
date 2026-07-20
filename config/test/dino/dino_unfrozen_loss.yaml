@@ -1,0 +1,45 @@
+gpus: "1"
+flag: test
+log_dir: "./log/test/dino_dann"
+checkpoint_path: "/mnt/data3/zhiyu/ForensicArtifacts/checkpoints/dino_dann/best_model.pth"
+save_dir: null
+
+testing:
+  batch_size: 32
+  threshold: null
+  use_ema_for_test: false
+  save_predictions: false
+  prediction_save_path: "./test_pred.csv"
+
+model:
+  repo_path: "/mnt/data3/zhiyu/dino_clip/dinov2_repo"
+  backbone_name: "dinov2_vitb14_reg"
+  pretrained: true
+  freeze_backbone: true
+  unfreeze_last_n_blocks: 1
+  unfreeze_norm: true
+  pooling_type: "cls_patch_mean"
+  hidden_dim: 512
+  dropout: 0.15
+  num_classes: 1
+
+data:
+  image_size: 224
+  strict_mode: false
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+test_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/test_big.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+
+logging:
+  print_freq: 20

@@ -9,10 +9,13 @@ from .dataprocess import (
     create_dataloaders
 )
 
+from .dino_dataprocess import ForensicImageDataset
+
 __all__ = [
     'ForensicFeatureDataset',
     #'ForensicTransform',
     #'AdvancedForensicTransform',
     'DataValidator',
-    'create_dataloaders'
+    'create_dataloaders',
+    'ForensicImageDataset'
 ]

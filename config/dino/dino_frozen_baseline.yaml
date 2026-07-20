@@ -1,0 +1,95 @@
+# ==================== 运行控制 ====================
+gpus: "4,5"
+flag: train
+
+log_dir: "./log/dino_baseline/patch_mean"
+checkpoint_path: null
+save_dir: "./checkpoints/dino_baseline/patch_mean"
+resume: false
+
+# ==================== 模型配置 ====================
+model:
+  # 本地 dinov2 仓库路径
+  repo_path: "/mnt/data3/zhiyu/dino_clip/dinov2_repo"
+
+  # 一定要用 with registers 版本
+  #   dinov2_vits14_reg
+  #   dinov2_vitb14_reg
+  #   dinov2_vitl14_reg
+  #   dinov2_vitg14_reg
+  backbone_name: "dinov2_vitb14_reg"
+
+  pretrained: true
+  freeze_backbone: true
+
+  # 特征聚合方式: cls / patch_mean / cls_patch_mean
+  pooling_type: "cls_patch_mean"
+
+  hidden_dim: 512
+  dropout: 0.1
+  num_classes: 1
+
+# ==================== 数据配置 ====================
+data:
+  image_size: 224
+  strict_mode: false
+
+  # DINOv2 标准归一化
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+train_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/train_big.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+val_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/val_medium.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+test_datasets:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/test_big.json"
+  target_domains: null
+
+# ==================== 训练参数 ====================
+training:
+  epochs: 30
+  batch_size: 16
+  grad_clip: 1.0
+
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-4
+    weight_decay: 1.0e-4
+    betas: [0.9, 0.999]
+
+  scheduler:
+    name: "CosineAnnealingLR"
+    T_max: 30
+    eta_min: 1.0e-6
+
+  early_stopping:
+    enabled: true
+    patience: 8
+    min_delta: 0.0005
+    monitor: "val_auc"
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"
+
+logging:
+  print_freq: 20
+  save_freq: 5

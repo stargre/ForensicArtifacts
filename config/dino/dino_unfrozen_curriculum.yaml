@@ -1,0 +1,110 @@
+# ==================== 运行控制 ====================
+gpus: "2,3,4,5"
+flag: train
+
+log_dir: "./log/dino_loss_profile_curriculum"
+checkpoint_path: null
+save_dir: "./checkpoints/dino_loss_profile_curriculum"
+resume: false
+
+# ==================== 模型配置 ====================
+model:
+  repo_path: "/mnt/data3/zhiyu/dino_clip/dinov2_repo"
+  backbone_name: "dinov2_vitb14_reg"
+  pretrained: true
+  freeze_backbone: true
+  unfreeze_last_n_blocks: 1   # 0=全冻结, 1=解冻最后1层, 2=解冻最后2层
+  unfreeze_norm: true
+  pooling_type: "cls_patch_mean"
+  hidden_dim: 512
+  dropout: 0.15
+  num_classes: 1
+
+
+# ==================== 数据配置 ====================
+data:
+  image_size: 224
+  strict_mode: false
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+train_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/train_big.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+val_dataset:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/val_medium.json"
+  target_domains: null
+  target_labels: null
+  target_mani_types: null
+
+test_datasets:
+  path: "/mnt/data2/zhiyu/Data/small_openmmsec/test_medium.json"
+  target_domains: null
+
+# ==================== 训练参数 ====================
+training:
+  epochs: 20
+  batch_size: 16
+  grad_clip: 1.0
+
+  optimizer:
+    name: "AdamW"
+    lr: 1.0e-4
+    backbone_lr: 1.0e-5
+    weight_decay: 5.0e-2
+    betas: [0.9, 0.999]
+
+  scheduler:
+    name: "flat_then_cosine"
+    flat_epochs: 0
+    eta_min: 1.0e-5
+
+  early_stopping:
+    enabled: true
+    patience: 6
+    min_delta: 0.0005
+    monitor: "val_auc"
+
+# ==================== EMA ====================
+ema:
+  enabled: false
+  dynamic_decay: true
+  decay_start: 0.999
+  decay_end: 0.9995
+  schedule: "linear"
+
+  use_ema_for_val: true
+  save_ema: true
+
+# ==================== Loss Profile Curriculum ====================
+loss_profile_curriculum:
+  enabled: true
+  top_ratio: 0.5
+  small_weight: 0.2
+  enable_after_profiling: true
+  domain_names: ["deepfake", "AIGC", "IMDL", "Doc"]
+
+# ==================== 旧 curriculum 关掉 ====================
+curriculum:
+  enabled: false
+  manager_type: "domain_weighted"
+
+# ==================== 系统配置 ====================
+system:
+  device: "cuda"
+  num_workers: 8
+  pin_memory: true
+  seed: 42
+
+distributed:
+  world_size: 1
+  local_rank: -1
+  dist_backend: "nccl"
+  dist_url: "env://"
+
+logging:
+  print_freq: 20
+  save_freq: 5
